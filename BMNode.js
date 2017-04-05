@@ -1,4 +1,4 @@
-/* ADNode.js */
+/* BMNode.js */
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
@@ -7,9 +7,9 @@ var util = require('util');
 
 /********************************************************************/
 
-function ADNode(options, privkey){
+function BMNode(options, privkey){
   // EventEmitter.call(this)
-  if(!options) throw "ERROR: Missing parameters to ADNode constructor"
+  if(!options) throw "ERROR: Missing parameters to BMNode constructor"
   this.id = options.id
   this.bitcoinnode = options.node
   this.address = options.addr.toString()
@@ -17,7 +17,7 @@ function ADNode(options, privkey){
 
   var self = this;
   var bus = options.bus
-  bus.on('adservice/newmessage', function(message){
+  bus.on('bmservice/newmessage', function(message){
     if(message.dst == self.id){
       // console.log('Node '+self.id+'(Address: '+self.address+')');
       self.handleMessage(message)
@@ -25,32 +25,32 @@ function ADNode(options, privkey){
   })
 
   if(self.id != 'broadcast'){
-    bus.on('adservice/broadcast', function(msg){
+    bus.on('bmservice/broadcast', function(msg){
       self.log(self.id,'Received broadcast message: '+msg);
       self.sendMessage(self.id,'broadcast','ack')
     })
   }
 }
 
-util.inherits(ADNode, EventEmitter);
+util.inherits(BMNode, EventEmitter);
 
 /* Prints log with Node prefix */
-ADNode.prototype.log = function(id, msg){
+BMNode.prototype.log = function(id, msg){
   return console.log('['+this.id+'] '+msg);
 }
 
 /* */
-ADNode.prototype.sendMessage = function (source, dest, message){
+BMNode.prototype.sendMessage = function (source, dest, message){
   var self = this
   msg = message //+ payload
 
-  this.bitcoinnode.services.adservice.sendMessage(source, dest, msg, function(){
+  this.bitcoinnode.services.bmservice.sendMessage(source, dest, msg, function(){
     // console.log('message '+msg+' sent');
     self.log(self.id, "Message Sent")
   })
 }
 
-ADNode.prototype.handleMessage = function (message){ //node, sender,
+BMNode.prototype.handleMessage = function (message){ //node, sender,
   //message construction: buildDataOut(hexString, 'hex');
   node = this.id
   msg = message.msg
@@ -64,7 +64,7 @@ ADNode.prototype.handleMessage = function (message){ //node, sender,
     case 'png':
       this.sendMessage(node, sender, 'ack')
       break;
-    case 'chn':
+    case 'chn': //WARN: experimental command
       switch (node) {
         case 'N1':
           this.sendMessage(node, "N2", 'chn')
@@ -84,9 +84,9 @@ ADNode.prototype.handleMessage = function (message){ //node, sender,
   }
 };
 
-ADNode.prototype.signMessage = function(tx){
+BMNode.prototype.signMessage = function(tx){
   tx.sign(this.privkey)
 }
 
-module.exports = ADNode;
+module.exports = BMNode;
 // module.exports.sign = signMessage

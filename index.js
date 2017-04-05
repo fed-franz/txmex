@@ -5,10 +5,9 @@ var bitcore = require('bitcore-lib');
 var explorers = require('bitcore-explorers');
 
 // var Service = require('bitcore-node').Service;
-var ADNode = require('./ADNode');
+var BMNode = require('./BMNode');
 
 var tBTC = bitcore.Networks.testnet
-// var BTC = bitcore.Networks.livenet
 var insight = new explorers.Insight(tBTC);
 var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
@@ -22,13 +21,13 @@ if(!fs.existsSync(dataDir)){
 
 /* HELPER FUNCTIONS */
 /********************************************************************/
-/* Prints log with AD prefix */
+/* Prints log with BM prefix */
 function log(msg){
-  return console.log('[AD] '+msg);
+  return console.log('[BM] '+msg);
 }
 
 /* Read a node file from disk */
-function readADNodeFile(name){
+function readBMNodeFile(name){
   path = nodeDir //"./nodes/"
   var file = fs.readFileSync(path+name+".dat");
   var nodeData = JSON.parse(file);
@@ -70,17 +69,17 @@ function assembleMessage(msgArray){
 
 /********************************************************************/
 
-/* AD Service Class */
+/* BM Service Class */
 /********************************************************************/
 /* Constructor */
-function ADMessageService(options){
+function BitMExService(options){
   if(options){
     EventEmitter.call(this, options);
     this.node = options.node;
 
-    // ADMessageService.prototype.node = options.node
+    // BitMExService.prototype.node = options.node
     // Service.call(this, options);
-    // console.log('node:'+ADMessageService.prototype.node);
+    // console.log('node:'+BitMExService.prototype.node);
 
     this.subscriptions = {};
     this.subscriptions.newmessage = [];
@@ -94,14 +93,14 @@ function ADMessageService(options){
 }
 
 /* We need bitcoind to listen for new transactions */
-ADMessageService.dependencies = ['bitcoind'];
+BitMExService.dependencies = ['bitcoind'];
 
 /* inherits the service base class */
-util.inherits(ADMessageService, EventEmitter);
+util.inherits(BitMExService, EventEmitter);
 
 /* Read node files and load their addresses */
 //TODO: put everything in one file?
-ADMessageService.prototype.loadNet = function(){
+BitMExService.prototype.loadNet = function(){
   var self = this
   var nodes = {};
 
@@ -114,18 +113,18 @@ ADMessageService.prototype.loadNet = function(){
     nodes[addr].name = nodeData.name
 
     var params = {id:nodeData.name, node:self.node, addr: addr, bus: self.bus}
-    nodes[addr].adnode = new ADNode(params, nodeData.privKey)
+    nodes[addr].bmnode = new BMNode(params, nodeData.privKey)
   });
 
-  self.adnodes = nodes
+  self.bmnodes = nodes
 }
 
 /* Start service */
-ADMessageService.prototype.start = function(callback) {
+BitMExService.prototype.start = function(callback) {
   this.node.services.bitcoind.on('tx', this.transactionHandler.bind(this));
   this.bus = this.node.openBus()
-  this.bus.subscribe('adservice/newmessage');
-  this.bus.subscribe('adservice/broadcast');
+  this.bus.subscribe('bmservice/newmessage');
+  this.bus.subscribe('bmservice/broadcast');
 
   this.loadNet()
 
@@ -134,13 +133,13 @@ ADMessageService.prototype.start = function(callback) {
 };
 
 /* stop */
-ADMessageService.prototype.stop = function(callback) {
+BitMExService.prototype.stop = function(callback) {
   //TODO: clean something?
   callback();
 };
 
 /* Set API endpoints */
-ADMessageService.prototype.getAPIMethods = function() {
+BitMExService.prototype.getAPIMethods = function() {
   return methods = [
     ['sendMessage', this, this.sendMessage, 3],
     ['getMessages', this, this.getMessages, 2]
@@ -148,16 +147,16 @@ ADMessageService.prototype.getAPIMethods = function() {
 };
 
 /* Set service events */
-ADMessageService.prototype.getPublishEvents = function() {
+BitMExService.prototype.getPublishEvents = function() {
   return [
       {
-        name: 'adservice/newmessage',
+        name: 'bmservice/newmessage',
         scope: this,
         subscribe: this.subscribe.bind(this, 'newmessage'),
         unsubscribe: this.unsubscribe.bind(this, 'newmessage')
       },
       {
-        name: 'adservice/broadcast',
+        name: 'bmservice/broadcast',
         scope: this,
         subscribe: this.subscribe.bind(this, 'broadcast'),
         unsubscribe: this.unsubscribe.bind(this, 'broadcast')
@@ -165,29 +164,29 @@ ADMessageService.prototype.getPublishEvents = function() {
   ];
 };
 
-ADMessageService.prototype.subscribe = function(name, emitter) {
+BitMExService.prototype.subscribe = function(name, emitter) {
   this.subscriptions[name].push(emitter);
 };
 
-ADMessageService.prototype.unsubscribe = function(name, emitter) {
+BitMExService.prototype.unsubscribe = function(name, emitter) {
   var index = this.subscriptions[name].indexOf(emitter);
   if (index > -1) {
     this.subscriptions[name].splice(index, 1);
   }
 };
 
-ADMessageService.prototype.getAddr = function(name){
-  var adnodes = this.adnodes
+BitMExService.prototype.getAddr = function(name){
+  var bmnodes = this.bmnodes
 
-  for(var key in adnodes)
-    if(adnodes[key].name == name)
+  for(var key in bmnodes)
+    if(bmnodes[key].name == name)
       return key;
 
   return null;
 };
 
 //TODO: handle multiple messages from same A to same B
-ADMessageService.prototype.sendMessage = function(source, dest, message, callback){
+BitMExService.prototype.sendMessage = function(source, dest, message, callback){
   // log("sending \'"+message+"\' from "+source+" to "+dest);
   var self = this
   var srcAddr = self.getAddr(source);//nodeData.tstAddr
@@ -200,13 +199,13 @@ ADMessageService.prototype.sendMessage = function(source, dest, message, callbac
   var sendMsgTransaction = function(seq){
     /* Get UTXOs to fund new transaction */
     insight.getUnspentUtxos(srcAddr, function(err, utxos){
-      if(err) return log(ADlog+'ERR (insight.getUnspentUtxos):'+err);
-      if(utxos.length == 0) return log(ADlog+'ERR: Not enough Satoshis to make transaction');
+      if(err) return log(BMlog+'ERR (insight.getUnspentUtxos):'+err);
+      if(utxos.length == 0) return log(BMlog+'ERR: Not enough Satoshis to make transaction');
       //TODO: get new coins from faucet
 
       seqcode = seq.toString(16)
       len = chunks.length.toString(16)
-      var prefix = "AD" + len + seqcode
+      var prefix = "BM" + len + seqcode
 
       /* Create Transaction */
       //TODO: put this in try/catch block
@@ -220,8 +219,8 @@ ADMessageService.prototype.sendMessage = function(source, dest, message, callbac
       transaction.fee(transaction.getFee())
 
       /* Let the node sign the transaction */
-      if(self.adnodes)
-        self.adnodes[srcAddr.toString()].adnode.signMessage(transaction)
+      if(self.bmnodes)
+        self.bmnodes[srcAddr.toString()].bmnode.signMessage(transaction)
 
       //TODO: verify serialization errors (see at the end of this file)
 
@@ -256,19 +255,19 @@ ADMessageService.prototype.sendMessage = function(source, dest, message, callbac
   });
 }
 
-/* Emits 'newmessage' event notifications to AD Nodes*/
-ADMessageService.prototype.deliverMessage = function(src, dst, msg){
-  var srcNode = this.adnodes[src.toString()].name
-  var dstNode = this.adnodes[dst.toString()].name
+/* Emits 'newmessage' event notifications to BM Nodes*/
+BitMExService.prototype.deliverMessage = function(src, dst, msg){
+  var srcNode = this.bmnodes[src.toString()].name
+  var dstNode = this.bmnodes[dst.toString()].name
   var params = {src:srcNode, dst:dstNode, msg:msg}
 
   for(var i = 0; i < this.subscriptions.newmessage.length; i++) {
-    this.subscriptions.newmessage[i].emit('adservice/newmessage', params);
+    this.subscriptions.newmessage[i].emit('bmservice/newmessage', params);
   }
 }
 
 /* Collects received chunks */
-ADMessageService.prototype.collectMessage = function (src, dst, data){
+BitMExService.prototype.collectMessage = function (src, dst, data){
   var msglen = parseInt(data.charAt(3), 16);
   var msgseq = parseInt(data.charAt(4), 16);
   var msg = data.slice(5)
@@ -282,15 +281,15 @@ ADMessageService.prototype.collectMessage = function (src, dst, data){
   /* If a message is complete, deliver it */
   if(Object.keys(msgDB[src+dst]).length == msglen){
     fullmsg = assembleMessage(msgDB[src+dst])
-    if(this.adnodes[dst.toString()]){
+    if(this.bmnodes[dst.toString()]){
       this.deliverMessage(src, dst, fullmsg)
       msgDB[src+dst] = []
     }
   }
 }
 
-/* Check if 'tx' contains an AD protocol message */
-function isADTransaction(tx){
+/* Check if 'tx' contains an BM protocol message */
+function isBMTransaction(tx){
   if(tx.outputs.length < 2) return false
 
   script = tx.outputs[1].script
@@ -300,20 +299,20 @@ function isADTransaction(tx){
   msgcode = msgsplit[msgsplit.length-1]
   data = hexToAscii(msgcode)
 
-  ADcode = data.substring(0,3)
-  if(ADcode.localeCompare("AD")!=0) return false
+  BMcode = data.substring(0,3)
+  if(BMcode.localeCompare("BM")!=0) return false
 
   return true
 }
 
 /* transactionHandler */
-ADMessageService.prototype.transactionHandler = function(txBuffer) {
+BitMExService.prototype.transactionHandler = function(txBuffer) {
   var self = this;
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
 
   //log('tx: '+tx.id);
   if(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script){
-    if(isADTransaction(tx)){
+    if(isBMTransaction(tx)){
       var src = tx.inputs[0].script.toAddress(this.node.network);
       var dst = tx.outputs[0].script.toAddress(this.node.network);
 
@@ -325,7 +324,7 @@ ADMessageService.prototype.transactionHandler = function(txBuffer) {
   }//if
 };
 
-ADMessageService.prototype.setupRoutes = function(app, express) {
+BitMExService.prototype.setupRoutes = function(app, express) {
   var self = this
   // Set up routes
   app.get('/hello', function(req, res) {
@@ -333,7 +332,7 @@ ADMessageService.prototype.setupRoutes = function(app, express) {
     res.send('world');
 
     for (var i = 0; i < self.subscriptions.broadcast.length; i++) {
-      self.subscriptions.broadcast[i].emit('adservice/broadcast', 'hello world');
+      self.subscriptions.broadcast[i].emit('bmservice/broadcast', 'hello world');
     }
   });
 
@@ -341,9 +340,9 @@ ADMessageService.prototype.setupRoutes = function(app, express) {
   app.use('/static', express.static(__dirname + '/static'));
 };
 
-ADMessageService.prototype.getRoutePrefix = function() {
-  return 'adservice'
+BitMExService.prototype.getRoutePrefix = function() {
+  return 'bmservice'
 };
 
-module.exports = ADMessageService;
+module.exports = BitMExService;
 module.exports.sendMessage = this.sendMessage //TODO: remove (replaced by APIcalls)
