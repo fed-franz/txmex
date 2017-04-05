@@ -1,12 +1,12 @@
-/* ADNet.js */
+/* BMNet.js */
 module.exports = {
   receiveMessage: receiveMessage,
   // setNode: function(node){
   //   RUNNING_NODE = node
   //   //var bus = new Bus({node: node});
   //   var bus = node.openBus(); //{remoteAddress: '127.0.0.1'}
-  //   bus.subscribe('adservice/newmessage');
-  //   bus.on('adservice/newmessage', function(message){
+  //   bus.subscribe('bmservice/newmessage');
+  //   bus.on('bmservice/newmessage', function(message){
   //     console.log('newmessage: '+message);
   //   })
   // }
@@ -15,22 +15,22 @@ module.exports = {
 var bitcore = require('bitcore-lib')
 var explorers = require('bitcore-explorers');
 var fs = require('fs');
-var ADService = require('./index');
+var BMService = require('./index');
 // var apigp = require('./APIgetpost-lib')
 
-// var ADS = new ADService({})
-var AD_NET_FILE = 'adnet.json'
+// var BMS = new BMService({})
+var BM_NET_FILE = 'bmnet.json'
 var tBTC = bitcore.Networks.testnet
 var BTC = bitcore.Networks.livenet
 var insight = new explorers.Insight(tBTC);
 var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 var RUNNING_NODE
 
-function createADNodeFile(nodeData){
+function createBMNodeFile(nodeData){
   fs.writeFileSync(nodeData.name+".dat", JSON.stringify(nodeData, null, 2));
 }
 
-function readADNodeFile(name){
+function readBMNodeFile(name){
   path = "./nodes/"
   var file = fs.readFileSync(path+name+".dat");
   var nodeData = JSON.parse(file);
@@ -40,7 +40,7 @@ function readADNodeFile(name){
 
 /*****************************************************************************/
 /* Creates a new Wallet for N nodes (addresses) */
-function createADNode(name, options){
+function createBMNode(name, options){
   var privateKey = new bitcore.PrivateKey();
   var privateKeyWIF = privateKey.toWIF();
   // var publicKey = privateKey.toPublicKey();
@@ -53,16 +53,16 @@ function createADNode(name, options){
     "tstAddr": tBTCAddress.toString(),
     "liveAddr": BTCAddress.toString(),
   }
-  createADNodeFile(nodeData)
-}//createADNode
+  createBMNodeFile(nodeData)
+}//createBMNode
 
-function updateADNode(name, newData){
-  var nodeData = readADNodeFile(name);
+function updateBMNode(name, newData){
+  var nodeData = readBMNodeFile(name);
 }
 
 /* Get Node Status */
 function getNodeStatus(name){
-  var nodeData = readADNodeFile(name)
+  var nodeData = readBMNodeFile(name)
   console.log("Node Data:"+JSON.stringify(nodeData,null,2));
 
   insight.getUnspentUtxos(nodeData.tstAddr, function(err, utxos){
@@ -86,21 +86,21 @@ function randHex(length) {
 /* Create new Node */
 
 
-/* Send a message through AD service */
+/* Send a message through BM service */
 function sendMessage(source, dest, message){
   payload = randHex(100) //TEMPORARY
   msg = message + payload //TODO:insert length after command and remove from chunks
 
   //TODO: add callback
-  ads = new ADService()
-  ads.sendMessage(source, dest, msg, function(){
+  bms = new BMService()
+  bms.sendMessage(source, dest, msg, function(){
     console.log('Message Sent');
   })
 }
 
 /* Retrieve messages for Node Nx*/
 function receiveMessage (node, sender, msg){
-  //ads.getMessages()
+  //bms.getMessages()
 };
 
 /****************************************************************************/
@@ -121,7 +121,7 @@ switch (cmd) {
     }
 
     // options = {network: 'testnet'}
-    createADNode(name);
+    createBMNode(name);
     break;
 
   case 'getstatus':
