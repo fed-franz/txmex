@@ -1,15 +1,8 @@
 /* BMNet.js */
+//TODO: createNetwork(numNodes)
 module.exports = {
+  addBMNode: addBMNode,
   receiveMessage: receiveMessage,
-  // setNode: function(node){
-  //   RUNNING_NODE = node
-  //   //var bus = new Bus({node: node});
-  //   var bus = node.openBus(); //{remoteAddress: '127.0.0.1'}
-  //   bus.subscribe('bmservice/newmessage');
-  //   bus.on('bmservice/newmessage', function(message){
-  //     console.log('newmessage: '+message);
-  //   })
-  // }
 };
 
 var bitcore = require('bitcore-lib')
@@ -20,17 +13,23 @@ var BMService = require('./index');
 
 // var BMS = new BMService({})
 var BM_NET_FILE = 'bmnet.json'
+const DATA_FLDR = './data'
 var tBTC = bitcore.Networks.testnet
 var BTC = bitcore.Networks.livenet
 var insight = new explorers.Insight(tBTC);
 var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 var RUNNING_NODE
 
-function createBMNodeFile(nodeData){
-  fs.writeFileSync(nodeData.name+".dat", JSON.stringify(nodeData, null, 2));
+//TODO: replace with one BMNet file with all nodes
+function saveBMNode(nodeData){
+  if (!fs.existsSync(DATA_FLDR))
+    fs.mkdirSync(DATA_FLDR);
+
+  fs.writeFileSync(DATA_FLDR+nodeData.name+".dat", JSON.stringify(nodeData, null, 2));
+  //TODO: if addr start with m save to testnet
 }
 
-function readBMNodeFile(name){
+function loadBMNode(name){
   path = "./nodes/"
   var file = fs.readFileSync(path+name+".dat");
   var nodeData = JSON.parse(file);
@@ -39,30 +38,42 @@ function readBMNodeFile(name){
 }
 
 /*****************************************************************************/
+function addBMNode(address, name, privKey){
+  // var privKey = bitcore.PrivateKey.fromWIF(privKeyWIF)
+
+  //TODO: if(!name) assign name dynamically (e.g.: BMN1, BMN2)
+  var nodeData = {
+    "name": name, //(name ? name : getBMNodeName())
+    "privKey": (privKey ? privKey : undefined),
+    "address": address,
+  }
+  saveBMNode(nodeData)
+}
+
 /* Creates a new Wallet for N nodes (addresses) */
 function createBMNode(name, options){
-  var privateKey = new bitcore.PrivateKey();
-  var privateKeyWIF = privateKey.toWIF();
-  // var publicKey = privateKey.toPublicKey();
-  var tBTCAddress = privateKey.toAddress(tBTC);
-  var BTCAddress = privateKey.toAddress(BTC);
+  var privKey = new bitcore.PrivateKey();
+  var privKeyWIF = privKey.toWIF();
+  // var publicKey = privKey.toPublicKey();
+  var tBTCAddress = privKey.toAddress(tBTC);
+  var BTCAddress = privKey.toAddress(BTC);
 
   var nodeData = {
     "name": name,
-    "privKey": privateKeyWIF,
+    "privKey": privKeyWIF,
     "tstAddr": tBTCAddress.toString(),
     "liveAddr": BTCAddress.toString(),
   }
-  createBMNodeFile(nodeData)
+  saveBMNode(nodeData)
 }//createBMNode
 
 function updateBMNode(name, newData){
-  var nodeData = readBMNodeFile(name);
+  var nodeData = loadBMNode(name);
 }
 
 /* Get Node Status */
 function getNodeStatus(name){
-  var nodeData = readBMNodeFile(name)
+  var nodeData = loadBMNode(name)
   console.log("Node Data:"+JSON.stringify(nodeData,null,2));
 
   insight.getUnspentUtxos(nodeData.tstAddr, function(err, utxos){
@@ -104,6 +115,7 @@ function receiveMessage (node, sender, msg){
 };
 
 /****************************************************************************/
+/*
 var args = process.argv.slice(2);
 // if(args < 2){ console.log("Usage: " + __filename + "ASSET_ID NUM_TRANSFERS NUM_RECIPIENTS [WALLET_FILE]");
 //     process.exit(-1); }
@@ -150,3 +162,4 @@ switch (cmd) {
     console.log("Syntax: CMD [ARGS]");
     console.log("Commands: 'newnode'");
 }
+*/

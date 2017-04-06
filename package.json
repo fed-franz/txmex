@@ -8,8 +8,9 @@
   "author": "Federico Franzoni",
   "license": "ISC",
   "dependencies": {
-    "bitcore-explorers": "^1.0.1",
-    "bitcore-lib": "^0.14.0"
+    "bitcore-explorers": "*",
+    "bitcore-lib": "*",
+    "minimist": "*"
   },
   "devDependencies": {},
   "description": ""
