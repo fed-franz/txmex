@@ -1,9 +1,11 @@
 /* BMNet.js */
+
 //TODO: createNetwork(numNodes)
-module.exports = {
-  addBMNode: addBMNode,
-  receiveMessage: receiveMessage,
-};
+// module.exports = {
+//   addBMNode: addBMNode,
+//   receiveMessage: receiveMessage,
+//   sendMessage: sendMessage,
+// };
 
 var bitcore = require('bitcore-lib')
 var explorers = require('bitcore-explorers');
@@ -20,6 +22,46 @@ var insight = new explorers.Insight(tBTC);
 var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 var RUNNING_NODE
 
+function loadBMNode(bmnode){
+  var BMNodes = this.bmnodes
+
+  var addr = (this.node.network == tBTC ? bmnode.tstAddr : bmnode.liveAddr)
+  BMNodes[addr] = {}
+  BMNodes[addr].name = bmnode.name
+
+  var params = {node:this.node, id:bmnode.name, addr: addr, bus: this.bus}
+  BMNodes[addr].bmnode = new BMNode(params, bmnode.privKey)
+}
+
+function loadBMNet(netDir){
+  files = fs.readdirSync(netDir)
+  files.forEach(function(file){
+    var fileData = fs.readFileSync(netDir+'/'+file);
+    var nodeData = JSON.parse(fileData);
+    loadBMNode(nodeData)
+  }
+}
+
+/***** Constructor *****/
+function BMNet (options, load){
+  if(options){
+    this.name = options.name
+    this.node = options.node
+    this.bus = options.bus
+    this.bmnodes = {}
+  }
+
+  if(load){
+    loadBMNet(options.dir)
+  }
+
+  // return this
+}
+
+BMNet.prototype.foo = function foo() {
+  console.log(this.name);
+};
+
 //TODO: replace with one BMNet file with all nodes
 function saveBMNode(nodeData){
   if (!fs.existsSync(DATA_FLDR))
@@ -29,42 +71,37 @@ function saveBMNode(nodeData){
   //TODO: if addr start with m save to testnet
 }
 
-function loadBMNode(name){
-  path = "./nodes/"
-  var file = fs.readFileSync(path+name+".dat");
-  var nodeData = JSON.parse(file);
-
-  return nodeData
-}
-
 /*****************************************************************************/
-function addBMNode(address, name, privKey){
-  // var privKey = bitcore.PrivateKey.fromWIF(privKeyWIF)
+BMNet.prototype.addBMNode = function(bmnode){
+  BMNodes = this.bmnodes
+  /* Select addres */
+  var addr = (this.node.network == tBTC ? bmnode.tstAddr : bmnode.liveAddr)
+  BMNodes[addr] = {}
+  BMNodes[addr].name = bmnode.name
 
-  //TODO: if(!name) assign name dynamically (e.g.: BMN1, BMN2)
-  var nodeData = {
-    "name": name, //(name ? name : getBMNodeName())
-    "privKey": (privKey ? privKey : undefined),
-    "address": address,
-  }
-  saveBMNode(nodeData)
+  var params = {node:self.node, id:bmnode.name, addr: addr, bus: self.bus}
+  BMNodes[addr].bmnode = new BMNode(params, bmnode.privKey)
 }
 
 /* Creates a new Wallet for N nodes (addresses) */
-function createBMNode(name, options){
+function createBMNode(name, tmp){
   var privKey = new bitcore.PrivateKey();
   var privKeyWIF = privKey.toWIF();
   // var publicKey = privKey.toPublicKey();
   var tBTCAddress = privKey.toAddress(tBTC);
   var BTCAddress = privKey.toAddress(BTC);
 
-  var nodeData = {
+  var BMNode = {
     "name": name,
     "privKey": privKeyWIF,
     "tstAddr": tBTCAddress.toString(),
     "liveAddr": BTCAddress.toString(),
   }
-  saveBMNode(nodeData)
+
+  if(!tmp)
+    saveBMNode(BMNode)
+
+  return BMNode
 }//createBMNode
 
 function updateBMNode(name, newData){
@@ -94,17 +131,29 @@ function randHex(length) {
 
 
 /*****************************************************************************/
+function addNode(node){
+
+}
 /* Create new Node */
 
 
 /* Send a message through BM service */
-function sendMessage(source, dest, message){
-  payload = randHex(100) //TEMPORARY
-  msg = message + payload //TODO:insert length after command and remove from chunks
+function sendMessage(source, dest, message, key){
+  // payload = randHex(100) //TEMPORARY
+  msg = message //+ payload //TODO:insert length after command and remove from chunks
+
+  bms = new BMService()
+
+  if(!source){
+    var tmpNode = createBMNode()
+    source = tmpNode.name
+    bms.loadNode(tmpNode)
+  } //Create a new address
+
 
   //TODO: add callback
-  bms = new BMService()
-  bms.sendMessage(source, dest, msg, function(){
+
+  bms.sendMessage(source, dest, msg, key, function(){
     console.log('Message Sent');
   })
 }
@@ -162,4 +211,21 @@ switch (cmd) {
     console.log("Syntax: CMD [ARGS]");
     console.log("Commands: 'newnode'");
 }
+
+/* Create new Bitcoin address
+function createBitcoinAddress(BCnet){
+  var privKey = new bitcore.PrivateKey();
+  var privKeyWIF = privKey.toWIF();
+
+  if(BCnet == BTC)
+    var newAddr = privKey.toAddress(BTC);
+  else
+    var newAddr = privKey.toAddress(tBTC);
+
+  var BTCAddr = {
+    "key": privKeyWIF,
+    "addr": newAddr.toString(),
+  }
+}
 */
+module.exports = BMNet;

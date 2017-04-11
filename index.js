@@ -1,3 +1,4 @@
+DBG_MODE=true
 var util = require('util');
 var fs = require( 'fs' );
 var EventEmitter = require('events');
@@ -6,6 +7,8 @@ var explorers = require('bitcore-explorers');
 
 // var Service = require('bitcore-node').Service;
 var BMNode = require('./BMNode');
+const BMNet = require('./BMNet');
+var BMutils = require('./BMutils');
 
 var tBTC = bitcore.Networks.testnet
 var insight = new explorers.Insight(tBTC);
@@ -21,10 +24,8 @@ if(!fs.existsSync(dataDir)){
 
 /* HELPER FUNCTIONS */
 /********************************************************************/
-/* Prints log with BM prefix */
-function log(msg){
-  return console.log('[BM] '+msg);
-}
+var log = BMutils.log
+var hexToAscii = BMutils.hexToAscii
 
 /* Read a node file from disk */
 function readBMNodeFile(name){
@@ -33,16 +34,6 @@ function readBMNodeFile(name){
   var nodeData = JSON.parse(file);
 
   return nodeData
-}
-
-/* Convert hex string to ASCII */
-function hexToAscii (str1){
-  var hex  = str1.toString();
-  var str = '';
-  for (var n = 0; n < hex.length; n += 2)
-    str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));
-
-  return str;
 }
 
 /* Split message 'str' in chunks of 'size' letters */
@@ -77,10 +68,6 @@ function BitMExService(options){
     EventEmitter.call(this, options);
     this.node = options.node;
 
-    // BitMExService.prototype.node = options.node
-    // Service.call(this, options);
-    // console.log('node:'+BitMExService.prototype.node);
-
     this.subscriptions = {};
     this.subscriptions.newmessage = [];
     this.subscriptions.broadcast = [];
@@ -92,32 +79,54 @@ function BitMExService(options){
   });
 }
 
-/* We need bitcoind to listen for new transactions */
+/* We need bitcoind to listen for new transactions */ //TODO: update?
 BitMExService.dependencies = ['bitcoind'];
 
 /* inherits the service base class */
 util.inherits(BitMExService, EventEmitter);
 
+/* loadNode: add a node to the pool */
+BitMExService.prototype.loadNode = function(bmnode){
+  var self = this
+  var BMNodes = self.bmnodes
+
+  var addr = (self.node.network == tBTC ? bmnode.tstAddr : bmnode.liveAddr)
+  BMNodes[addr] = {}
+  BMNodes[addr].name = bmnode.name
+
+  var params = {node:self.node, id:bmnode.name, addr: addr, bus: self.bus}
+  BMNodes[addr].bmnode = new BMNode(params, bmnode.privKey)
+
+  if(DBG_MODE){
+    console.log("[BM] Added node: "+bmnode.name );
+    log("BMNodes: "+ BMNodes)
+  }
+}
+
 /* Read node files and load their addresses */
 //TODO: put everything in one file?
 BitMExService.prototype.loadNet = function(){
   var self = this
-  var nodes = {};
-
+  self.bmnet = new BMNet({node: self.node, bus: self.bus, name:"testbmnet"})
+  self.bmnodes = {};
+// log("net: "+self.bmnet.node.network)
+// log("netname: "+self.bmnet.name)
   files = fs.readdirSync(nodeDir)
   files.forEach(function(file){
     var fileData = fs.readFileSync(nodeDir+'/'+file);
     var nodeData = JSON.parse(fileData);
+/*
     var addr = (self.node.network == tBTC ? nodeData.tstAddr : nodeData.liveAddr)
     nodes[addr] = {}
     nodes[addr].name = nodeData.name
 
     var params = {id:nodeData.name, node:self.node, addr: addr, bus: self.bus}
     nodes[addr].bmnode = new BMNode(params, nodeData.privKey)
+*/
+   self.loadNode(nodeData)
   });
-
-  self.bmnodes = nodes
 }
+
 
 /* Start service */
 BitMExService.prototype.start = function(callback) {
@@ -138,11 +147,23 @@ BitMExService.prototype.stop = function(callback) {
   callback();
 };
 
+BitMExService.prototype.tryapi = function(a,callback){
+  self = this
+  console.log("a:"+a);
+  // log("bmnodes"+self.bmnodes)
+  for (i in self.bmnodes) {
+    log("Name: " + i + " Value: " + self.bmnodes[i]);
+  }
+  log("tryapi")
+  return callback(null,"OK2");
+}
 /* Set API endpoints */
 BitMExService.prototype.getAPIMethods = function() {
+  // var self = this
   return methods = [
-    ['sendMessage', this, this.sendMessage, 3],
-    ['getMessages', this, this.getMessages, 2]
+    ['tryapi', this, this.tryapi, 1],
+    ['sendmessage', this, this.sendMessage, 3],
+    ['getmessages', this, this.getMessages, 2]
   ];
 };
 
@@ -187,7 +208,7 @@ BitMExService.prototype.getAddr = function(name){
 
 //TODO: handle multiple messages from same A to same B
 BitMExService.prototype.sendMessage = function(source, dest, message, callback){
-  // log("sending \'"+message+"\' from "+source+" to "+dest);
+  log("sending \'"+message+"\' from "+source+" to "+dest);
   var self = this
   var srcAddr = self.getAddr(source);//nodeData.tstAddr
   var dstAddr = self.getAddr(dest);//nodeData.tstAddr
@@ -248,10 +269,10 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
     for (var i = 0; i < utxos.length; i++)
       balance +=utxos[i]['satoshis'];
     if(balance < (2*MIN_AMOUNT*chunks.length))
-      return log("ERR: not enough funds to send message");
+      return callback("ERR: not enough funds to send message");
 
     sendMsgTransaction(0)
-
+    return callback(null, "Message sent")
   });
 }
 
