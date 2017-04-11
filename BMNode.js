@@ -45,6 +45,7 @@ BMNode.prototype.sendMessage = function (source, dest, message){
   msg = message //+ payload
 
   this.bitcoinnode.services.bmservice.sendMessage(source, dest, msg, function(){
+  //TRY this.node.services.bmservice.sendMessage(source, dest, msg, function(){
     // console.log('message '+msg+' sent');
     self.log(self.id, "Message Sent")
   })
