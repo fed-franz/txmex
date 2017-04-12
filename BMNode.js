@@ -1,22 +1,52 @@
 /* BMNode.js */
+const DBG=true
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
-/* HELPER FUNCTIONS */
+/* Functions */
 /********************************************************************/
+function saveBMNode(nodeData){
+  if (!fs.existsSync(DATA_FLDR))
+    fs.mkdirSync(DATA_FLDR);
+
+  fs.writeFileSync(DATA_FLDR+nodeData.name+".dat", JSON.stringify(nodeData, null, 2));
+  //TODO: if addr start with m save to testnet
+}
+
+/* Create new Node */
+function createBMNode(id, tmp){
+  BTCNode = util.createBTC()
+
+  var BMNode = {
+    "id": id,
+    "privKey": BTCNode.key,
+    "tstAddr": BTCNode.tAddr,
+    "liveAddr": BTCNode.addr,
+  }
+
+  if(!tmp)
+    saveBMNode(BMNode)
+
+  return BMNode
+}
 
 /********************************************************************/
 
-function BMNode(options, privkey){
+/***** Constructor *****/
+function BMNode(net, params, addr){
+
+  //TODO: if(!net && !params && !addr) createBMNode(, true)
   // EventEmitter.call(this)
-  if(!options) throw "ERROR: Missing parameters to BMNode constructor"
-  this.id = options.id
-  this.bitcoinnode = options.node
-  this.address = options.addr.toString()
-  this.privkey = privkey
+  if(!net || !params) throw "ERROR: Missing parameters to BMNode constructor"
+
+  this.net = net
+  this.id = params.name
+  this.privkey = params.privkey
+  //TODO: get Address from privkey ?
+  this.address = addr.toString()
 
   var self = this;
-  var bus = options.bus
+  var bus = net.bus
   bus.on('bmservice/newmessage', function(message){
     if(message.dst == self.id){
       // console.log('Node '+self.id+'(Address: '+self.address+')');
@@ -24,19 +54,25 @@ function BMNode(options, privkey){
     }
   })
 
-  if(self.id != 'broadcast'){
+  if(this.id != 'broadcast'){
     bus.on('bmservice/broadcast', function(msg){
       self.log(self.id,'Received broadcast message: '+msg);
       self.sendMessage(self.id,'broadcast','ack')
     })
+  }
+
+  if(DBG){
+    this.log("Hello World!")
+    this.log("Network:"+net.name)
   }
 }
 
 util.inherits(BMNode, EventEmitter);
 
 /* Prints log with Node prefix */
-BMNode.prototype.log = function(id, msg){
-  return console.log('['+this.id+'] '+msg);
+BMNode.prototype.log = function(msg){
+  id = this.id
+  return console.log('['+id+'] '+msg);
 }
 
 /* */
@@ -44,7 +80,8 @@ BMNode.prototype.sendMessage = function (source, dest, message){
   var self = this
   msg = message //+ payload
 
-  this.bitcoinnode.services.bmservice.sendMessage(source, dest, msg, function(){
+  //this.bitcoinnode.
+  this.net.node.services.bmservice.sendMessage(source, dest, msg, function(){
   //TRY this.node.services.bmservice.sendMessage(source, dest, msg, function(){
     // console.log('message '+msg+' sent');
     self.log(self.id, "Message Sent")
