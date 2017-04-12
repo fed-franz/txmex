@@ -67,53 +67,11 @@ function BitMExService(options){
   });
 }
 
-/* We need bitcoind to listen for new transactions */ //TODO: update?
+/* Required services */
 BitMExService.dependencies = ['bitcoind'];
 
 /* inherits the service base class */
 util.inherits(BitMExService, EventEmitter);
-
-/* loadNode: add a node to the pool */
-BitMExService.prototype.loadNode = function(bmnode){
-  var self = this
-  var BMNodes = self.bmnodes
-
-  var addr = (self.node.network == tBTC ? bmnode.tstAddr : bmnode.liveAddr)
-  BMNodes[addr] = {}
-  BMNodes[addr].name = bmnode.name
-
-  var params = {node:self.node, id:bmnode.name, addr: addr, bus: self.bus}
-  BMNodes[addr].bmnode = new BMNode(params, bmnode.privKey)
-
-  if(DBG){
-    this.log("Added node: "+bmnode.name );
-    this.log("BMNodes: "+ BMNodes)
-  }
-}
-
-/* Read node files and load their addresses */
-//TODO: put everything in one file?
-BitMExService.prototype.loadNet = function(){
-  var self = this
-  self.bmnet = new BMNet({node: self.node, bus: self.bus, name:"testbmnet"}, dataDir)
-  self.bmnodes = {}; //TODO: delete
-
-  // files = fs.readdirSync(dataDir)
-  // files.forEach(function(file){
-  //   var fileData = fs.readFileSync(dataDir+'/'+file);
-  //   var nodeData = JSON.parse(fileData);
-/*
-    var addr = (self.node.network == tBTC ? nodeData.tstAddr : nodeData.liveAddr)
-    nodes[addr] = {}
-    nodes[addr].name = nodeData.name
-
-    var params = {id:nodeData.name, node:self.node, addr: addr, bus: self.bus}
-    nodes[addr].bmnode = new BMNode(params, nodeData.privKey)
-*/
-  //  self.loadNode(nodeData)
-  // });
-}
-
 
 /* Start service */
 BitMExService.prototype.start = function(callback) {
