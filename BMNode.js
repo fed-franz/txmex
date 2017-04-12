@@ -1,78 +1,86 @@
 /* BMNode.js */
-const DBG=true
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
+var fs = require('fs');
+var BMutils = require('./BMutils')
+const DBG = BMutils.DBG
 
 /* Functions */
 /********************************************************************/
-function saveBMNode(nodeData){
-  if (!fs.existsSync(DATA_FLDR))
-    fs.mkdirSync(DATA_FLDR);
+function saveBMNode(nodeData, nodeDir){
+  if (!fs.existsSync(nodeDir))
+    fs.mkdirSync(nodeDir);
 
-  fs.writeFileSync(DATA_FLDR+nodeData.name+".dat", JSON.stringify(nodeData, null, 2));
-  //TODO: if addr start with m save to testnet
-}
-
-/* Create new Node */
-function createBMNode(id, tmp){
-  BTCNode = util.createBTC()
-
-  var BMNode = {
-    "id": id,
-    "privKey": BTCNode.key,
-    "tstAddr": BTCNode.tAddr,
-    "liveAddr": BTCNode.addr,
-  }
-
-  if(!tmp)
-    saveBMNode(BMNode)
-
-  return BMNode
+  fs.writeFileSync(nodeDir+'/'+nodeData.id+'.dat', JSON.stringify(nodeData, null, 2));
 }
 
 /********************************************************************/
 
 /***** Constructor *****/
-function BMNode(net, params, addr){
-
-  //TODO: if(!net && !params && !addr) createBMNode(, true)
+function BMNode(bmnet, nodeData, NEW){
+  //nodeData.dataDir
+  //TODO: if(!net && !nodeData && !addr) createBMNode(, true)
   // EventEmitter.call(this)
-  if(!net || !params) throw "ERROR: Missing parameters to BMNode constructor"
+  if(!bmnet) throw "ERROR: Missing BMNet"
 
-  this.net = net
-  this.id = params.name
-  this.privkey = params.privkey
-  //TODO: get Address from privkey ?
-  this.address = addr.toString()
+  this.bmnet = bmnet
+  this.id = nodeData.id
+  this.privKey = nodeData.privKey
 
-  var self = this;
-  var bus = net.bus
+  if(NEW) this.createBMNode(nodeData)
+
+  /* Subscribe to BM events */
+  var self = this
+  var bus = bmnet.bus
+
   bus.on('bmservice/newmessage', function(message){
     if(message.dst == self.id){
-      // console.log('Node '+self.id+'(Address: '+self.address+')');
+      // self.log('(Address: '+self.getAddr()+')');
       self.handleMessage(message)
     }
   })
 
+  //TODO: set per-network broadcast address
   if(this.id != 'broadcast'){
     bus.on('bmservice/broadcast', function(msg){
       self.log(self.id,'Received broadcast message: '+msg);
+      /* Send ACK message to the sender */ //TODO: set optionally
       self.sendMessage(self.id,'broadcast','ack')
     })
   }
 
   if(DBG){
     this.log("Hello World!")
-    this.log("Network:"+net.name)
+    this.log("Network:"+bmnet.name)
   }
 }
 
 util.inherits(BMNode, EventEmitter);
 
+/* Create new Node */
+BMNode.prototype.createBMNode = function(nodeData, TMP){
+  if(!this.privKey)
+    this.privKey = BMutils.createBTCKey()
+
+  var BMNode = {
+    "id": this.id,
+    "privKey": this.privKey,
+    "addr": this.getAddr(),
+  }
+
+  if(!TMP) saveBMNode(BMNode, this.bmnet.dir);
+
+  return BMNode
+}
+
 /* Prints log with Node prefix */
 BMNode.prototype.log = function(msg){
-  id = this.id
-  return console.log('['+id+'] '+msg);
+  return BMutils.log(this.id, msg)
+}
+
+/* Returns the BTC address */
+BMNode.prototype.getAddr = function(){
+  return BMutils.getBTCAddr(this.privKey, this.bmnet.node.network)
 }
 
 /* */
@@ -81,13 +89,14 @@ BMNode.prototype.sendMessage = function (source, dest, message){
   msg = message //+ payload
 
   //this.bitcoinnode.
-  this.net.node.services.bmservice.sendMessage(source, dest, msg, function(){
+  this.bmnet.node.services.bmservice.sendMessage(source, dest, msg, function(){
   //TRY this.node.services.bmservice.sendMessage(source, dest, msg, function(){
     // console.log('message '+msg+' sent');
     self.log(self.id, "Message Sent")
   })
 }
 
+/* Handle a received message */
 BMNode.prototype.handleMessage = function (message){ //node, sender,
   //message construction: buildDataOut(hexString, 'hex');
   node = this.id
@@ -122,8 +131,9 @@ BMNode.prototype.handleMessage = function (message){ //node, sender,
   }
 };
 
+/* Sign a transaction */
 BMNode.prototype.signMessage = function(tx){
-  tx.sign(this.privkey)
+  tx.sign(this.privKey)
 }
 
 module.exports = BMNode;

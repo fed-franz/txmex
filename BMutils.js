@@ -3,17 +3,20 @@ const tBTC = bitcore.Networks.testnet
 const BTC = bitcore.Networks.livenet
 
 module.exports = {
-  log: log,
+  log: prefixLog,
   hexToAscii: hexToAscii,
   getKeyByValue: getKeyByValue,
-  createBTC: createBTC,
+  createBTCKey: createBTCKey,
   getBTCAddr: getBTCAddr,
 };
 
+module.exports.DBG = true
+
+
 
 /* Prints log with BM prefix */
-function log(msg){
-  return console.log('[BM] '+msg);
+function prefixLog(prefix, msg){
+  return console.log('['+prefix+'] '+msg);
 }
 
 /* Convert hex string to ASCII */
@@ -44,16 +47,11 @@ function getKeyByValue(object, value) {
 
 /* Returns the address for the key */
 function getBTCAddr(privKey, BTCnet){
-  privKey.toAddress(BTCnet).toString()
+  var pk = new bitcore.PrivateKey(privKey)
+  return pk.toAddress(BTCnet).toString()
 }
 
 /* Create new Bitcoin address */
-function createBTC(){
-  var privKey = new bitcore.PrivateKey();
-
-  return {
-    "key": privKey.toWIF(),
-    "addr": getBTCAddr(privKey, tBTC)
-    "tAddr": getBTCAddr(privKey, tBTC)
-  }
+function createBTCKey(){
+  return new bitcore.PrivateKey().toWIF();
 }
