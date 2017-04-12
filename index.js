@@ -15,8 +15,7 @@ var insight = new explorers.Insight(tBTC);
 var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
 /* Set Data directory */
-var nodeDir = __dirname+'/data'
-var dataDir = nodeDir
+var dataDir = __dirname+'/data'
 if(!fs.existsSync(dataDir)){
   fs.mkdirSync(dataDir);
 }
@@ -29,7 +28,7 @@ var hexToAscii = BMutils.hexToAscii
 
 /* Read a node file from disk */
 function readBMNodeFile(name){
-  path = nodeDir //"./nodes/"
+  path = dataDir //"./nodes/"
   var file = fs.readFileSync(path+name+".dat");
   var nodeData = JSON.parse(file);
 
@@ -107,14 +106,13 @@ BitMExService.prototype.loadNode = function(bmnode){
 //TODO: put everything in one file?
 BitMExService.prototype.loadNet = function(){
   var self = this
-  self.bmnet = new BMNet({node: self.node, bus: self.bus, name:"testbmnet"})
+  self.bmnet = new BMNet({node: self.node, bus: self.bus, name:"testbmnet"}, dataDir)
   self.bmnodes = {};
-// log("net: "+self.bmnet.node.network)
-// log("netname: "+self.bmnet.name)
-  files = fs.readdirSync(nodeDir)
-  files.forEach(function(file){
-    var fileData = fs.readFileSync(nodeDir+'/'+file);
-    var nodeData = JSON.parse(fileData);
+
+  // files = fs.readdirSync(dataDir)
+  // files.forEach(function(file){
+  //   var fileData = fs.readFileSync(dataDir+'/'+file);
+  //   var nodeData = JSON.parse(fileData);
 /*
     var addr = (self.node.network == tBTC ? nodeData.tstAddr : nodeData.liveAddr)
     nodes[addr] = {}
@@ -123,8 +121,8 @@ BitMExService.prototype.loadNet = function(){
     var params = {id:nodeData.name, node:self.node, addr: addr, bus: self.bus}
     nodes[addr].bmnode = new BMNode(params, nodeData.privKey)
 */
-   self.loadNode(nodeData)
-  });
+  //  self.loadNode(nodeData)
+  // });
 }
 
 
