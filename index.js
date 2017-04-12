@@ -5,13 +5,11 @@ var bitcore = require('bitcore-lib');
 var explorers = require('bitcore-explorers');
 
 // var Service = require('bitcore-node').Service;
-var BMNode = require('./BMNode');
+const BMNode = require('./BMNode');
 const BMNet = require('./BMNet');
-var BMutils = require('./BMutils');
+const BMutils = require('./BMutils');
 
-var tBTC = bitcore.Networks.testnet
-var insight = new explorers.Insight(tBTC);
-var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
+const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
 /* Set Data directory */
 var dataDir = __dirname+'/data'
@@ -23,15 +21,6 @@ if(!fs.existsSync(dataDir)){
 /* HELPER FUNCTIONS */
 /********************************************************************/
 const hexToAscii = BMutils.hexToAscii
-
-/* Read a node file from disk */
-function readBMNodeFile(name){
-  path = dataDir //"./nodes/"
-  var file = fs.readFileSync(path+name+".dat");
-  var nodeData = JSON.parse(file);
-
-  return nodeData
-}
 
 /* Split message 'str' in chunks of 'size' letters */
 function chunkMessage(str, size) {
@@ -69,6 +58,8 @@ function BitMExService(options){
     this.subscriptions.newmessage = [];
     this.subscriptions.broadcast = [];
     this.messageStorage = {}
+
+    this.insight = new explorers.Insight(this.node.network);
   }
 
   this.on('error', function(err) {
@@ -237,7 +228,7 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
   /* Function to send a transaction with an embedde message chunk */
   var sendMsgTransaction = function(seq){
     /* Get UTXOs to fund new transaction */
-    insight.getUnspentUtxos(srcAddr, function(err, utxos){
+    this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
       if(err) return this.log(BMlog+'ERR (insight.getUnspentUtxos):'+err);
       if(utxos.length == 0) return this.log(BMlog+'ERR: Not enough Satoshis to make transaction');
       //TODO: get new coins from faucet
@@ -264,7 +255,7 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
       //TODO: verify serialization errors (see at the end of this file)
 
       /* Broadcast Transaction */
-      insight.broadcast(transaction, function (err, txid) {
+      this.insight.broadcast(transaction, function (err, txid) {
         if (err) return this.log('ERR (insight.broadcast): ' + err);
 
         this.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
@@ -280,7 +271,7 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
   }//sendMsgTransaction
 
   /* Check if there is enough funds to send the whole message */
-  insight.getUnspentUtxos(srcAddr, function(err, utxos){
+  this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
     if(err) return this.log("ERR: "+err);
 
     var balance = 0
@@ -401,4 +392,3 @@ BitMExService.prototype.log = function(msg){
 
 module.exports = BitMExService;
 module.exports.sendMessage = this.sendMessage //TODO: remove (replaced by APIcalls)
-// module.exports.dataDir = dataDir
