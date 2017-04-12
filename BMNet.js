@@ -13,11 +13,11 @@ var explorers = require('bitcore-explorers');
 var fs = require('fs');
 const BMService = require('./index');
 const BMNode = require('./BMNode')
-const log = require('./BMutils').log
+const BMutils = require('./BMutils')
 
 // var BMS = new BMService({})
+const DBG = BMutils.DBG
 var BM_NET_FILE = 'bmnet.json'
-const DATA_FLDR = './data'
 var tBTC = bitcore.Networks.testnet
 var BTC = bitcore.Networks.livenet
 var insight = new explorers.Insight(tBTC);
@@ -30,38 +30,42 @@ function BMNet (options, dir){
     this.node = options.node
     this.bus = options.bus
     this.bmnodes = {}
+    this.dir = dir
   }
 
-  this.loadBMNet(dir)
+  this.loadBMNet()
 }
 
-BMNet.prototype.loadBMNet = function(netDir){
-  var self = this
+BMNet.prototype.loadBMNet = function(){
+  if(DBG) this.log("Loading nodes...")
+  var netDir = this.dir
   var files = fs.readdirSync(netDir)
+  var self = this
   files.forEach(function(file){
     var fileData = fs.readFileSync(netDir+'/'+file);
-    var nodeData = JSON.parse(fileData);
-    self.addBMNode(nodeData)
+    try {
+        var nodeData = JSON.parse(fileData)
+        self.addBMNode(nodeData)
+    } catch(e) {
+        return this.log("ERR: Failed to parse file "+file+". RET:"+e);
+    }
   })
 }
 
-BMNet.prototype.addBMNode = function(bmnode){
-  var BMNodes = this.bmnodes
-
-  var addr = (this.node.network == tBTC ? bmnode.tstAddr : bmnode.liveAddr)
-  BMNodes[addr] = {}
-  BMNodes[addr].id = bmnode.name
-  BMNodes[addr].bmnode = new BMNode(this, bmnode, addr)
+/* Adds a BMNode to this network */
+BMNet.prototype.addBMNode = function(nodeData, NEW){
+  if(DBG) this.log("Adding node...")
+  this.bmnodes[nodeData.id] = new BMNode(this, nodeData, NEW)
 }
 
-BMNet.prototype.getNodeName = function(addr) {
-  return this.bmnodes[addr].name
-  console.log(this.name);
+BMNet.prototype.getNodeID = function(addr) {
+  var nodes = this.bmnodes
+  var node = Object.keys(nodes).find(id => nodes[id].getAddr() === addr);
+  return node.id
 };
 
 BMNet.prototype.getNodeAddress = function(id) {
-  var nodes = this.bmnodes
-  return Object.keys(nodes).find(addr => nodes[addr].id === id);
+  return this.bmnodes[id].getAddr()
 };
 
 /*****************************************************************************/
@@ -81,12 +85,12 @@ function updateBMNode(name, newData){
 /* Get Node Status */
 function getNodeStatus(name){
   var nodeData = loadBMNode(name)
-  console.log("Node Data:"+JSON.stringify(nodeData,null,2));
+  this.log("Node Data:"+JSON.stringify(nodeData,null,2));
 
   insight.getUnspentUtxos(nodeData.tstAddr, function(err, utxos){
     if(err) return console.log("ERR (getUnspentUtxos): "+err);
 
-    console.log("utxos:"+JSON.stringify(utxos,null,2));
+    this.log("utxos:"+JSON.stringify(utxos,null,2));
   });
 }
 
@@ -109,7 +113,7 @@ function sendMessage(source, dest, message, key){
   //TODO: add callback
 
   bms.sendMessage(source, dest, msg, key, function(){
-    console.log('Message Sent');
+    this.log('Message Sent');
   })
 }
 
@@ -117,5 +121,10 @@ function sendMessage(source, dest, message, key){
 function receiveMessage (node, sender, msg){
   //bms.getMessages()
 };
+
+/* Prints log with Node prefix */
+BMNet.prototype.log = function(msg){
+  return BMutils.log(this.name, msg)
+}
 
 module.exports = BMNet;

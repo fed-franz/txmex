@@ -1,4 +1,3 @@
-DBG_MODE=true
 var util = require('util');
 var fs = require( 'fs' );
 var EventEmitter = require('events');
@@ -23,8 +22,7 @@ if(!fs.existsSync(dataDir)){
 
 /* HELPER FUNCTIONS */
 /********************************************************************/
-var log = BMutils.log
-var hexToAscii = BMutils.hexToAscii
+const hexToAscii = BMutils.hexToAscii
 
 /* Read a node file from disk */
 function readBMNodeFile(name){
@@ -74,7 +72,7 @@ function BitMExService(options){
   }
 
   this.on('error', function(err) {
-    log(err.stack);
+    this.log(err.stack);
   });
 }
 
@@ -96,9 +94,9 @@ BitMExService.prototype.loadNode = function(bmnode){
   var params = {node:self.node, id:bmnode.name, addr: addr, bus: self.bus}
   BMNodes[addr].bmnode = new BMNode(params, bmnode.privKey)
 
-  if(DBG_MODE){
-    console.log("[BM] Added node: "+bmnode.name );
-    log("BMNodes: "+ BMNodes)
+  if(DBG){
+    this.log("Added node: "+bmnode.name );
+    this.log("BMNodes: "+ BMNodes)
   }
 }
 
@@ -107,7 +105,7 @@ BitMExService.prototype.loadNode = function(bmnode){
 BitMExService.prototype.loadNet = function(){
   var self = this
   self.bmnet = new BMNet({node: self.node, bus: self.bus, name:"testbmnet"}, dataDir)
-  self.bmnodes = {};
+  self.bmnodes = {}; //TODO: delete
 
   // files = fs.readdirSync(dataDir)
   // files.forEach(function(file){
@@ -133,7 +131,11 @@ BitMExService.prototype.start = function(callback) {
   this.bus.subscribe('bmservice/newmessage');
   this.bus.subscribe('bmservice/broadcast');
 
-  this.loadNet()
+  try {
+    this.loadNet()
+  } catch (e) {
+    return this.log("ERR: Failed to start. RET:"+e);
+  }
 
   this.emit('ready');
   callback();
@@ -143,26 +145,6 @@ BitMExService.prototype.start = function(callback) {
 BitMExService.prototype.stop = function(callback) {
   //TODO: clean something?
   callback();
-};
-
-BitMExService.prototype.tryapi = function(a,callback){
-  self = this
-  console.log("a:"+a);
-  // log("bmnodes"+self.bmnodes)
-  for (i in self.bmnodes) {
-    log("Name: " + i + " Value: " + self.bmnodes[i]);
-  }
-  log("tryapi")
-  return callback(null,"OK2");
-}
-/* Set API endpoints */
-BitMExService.prototype.getAPIMethods = function() {
-  // var self = this
-  return methods = [
-    ['tryapi', this, this.tryapi, 1],
-    ['sendmessage', this, this.sendMessage, 3],
-    ['getmessages', this, this.getMessages, 2]
-  ];
 };
 
 /* Set service events */
@@ -194,6 +176,44 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
   }
 };
 
+/* __________ BM Functions __________ */
+//TODO: temp
+BitMExService.prototype.tryapi = function(a, callback){
+  self = this
+  this.log("Value:"+a);
+  // this.log("bmnodes"+self.bmnodes)
+  for (i in self.bmnodes) {
+    this.log("Name: " + i + " Value: " + self.bmnodes[i]);
+  }
+  this.log("tryapi")
+  return callback(null,"OK2");
+}
+
+BitMExService.prototype.addNode = function(id, privKey, callback){
+  if(!id) throw "ERR (addnode): Missing ID"
+  //TODO if(id == 'auto') create dynamic id
+  try {
+    this.bmnet.addBMNode({id, privKey}, true)
+  } catch (e) {
+    return callback(e)
+  }
+
+  return callback(null, "Node added")
+}
+
+BitMExService.prototype.createNode = function(id, callback){
+  if(!id) throw "ERR (addnode): Missing ID"
+
+  this.log("Creating new node")
+  try {
+    this.bmnet.addBMNode({id}, true)
+  } catch (e) {
+    return callback(e)
+  }
+
+  return callback(null, "Node created")
+}
+
 BitMExService.prototype.getAddr = function(name){
   var bmnodes = this.bmnodes
 
@@ -206,7 +226,7 @@ BitMExService.prototype.getAddr = function(name){
 
 //TODO: handle multiple messages from same A to same B
 BitMExService.prototype.sendMessage = function(source, dest, message, callback){
-  log("sending \'"+message+"\' from "+source+" to "+dest);
+  this.log("sending \'"+message+"\' from "+source+" to "+dest);
   var self = this
   var srcAddr = self.getAddr(source);//nodeData.tstAddr
   var dstAddr = self.getAddr(dest);//nodeData.tstAddr
@@ -218,8 +238,8 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
   var sendMsgTransaction = function(seq){
     /* Get UTXOs to fund new transaction */
     insight.getUnspentUtxos(srcAddr, function(err, utxos){
-      if(err) return log(BMlog+'ERR (insight.getUnspentUtxos):'+err);
-      if(utxos.length == 0) return log(BMlog+'ERR: Not enough Satoshis to make transaction');
+      if(err) return this.log(BMlog+'ERR (insight.getUnspentUtxos):'+err);
+      if(utxos.length == 0) return this.log(BMlog+'ERR: Not enough Satoshis to make transaction');
       //TODO: get new coins from faucet
 
       seqcode = seq.toString(16)
@@ -245,12 +265,12 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
 
       /* Broadcast Transaction */
       insight.broadcast(transaction, function (err, txid) {
-        if (err) return log('ERR (insight.broadcast): ' + err);
+        if (err) return this.log('ERR (insight.broadcast): ' + err);
 
-        log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
+        this.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
 
         if(seq == chunks.length-1){
-          // log("All chunks sent");
+          // this.log("All chunks sent");
           if(callback)
             return callback()
         }
@@ -261,7 +281,7 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
 
   /* Check if there is enough funds to send the whole message */
   insight.getUnspentUtxos(srcAddr, function(err, utxos){
-    if(err) return log("ERR: "+err);
+    if(err) return this.log("ERR: "+err);
 
     var balance = 0
     for (var i = 0; i < utxos.length; i++)
@@ -329,7 +349,7 @@ BitMExService.prototype.transactionHandler = function(txBuffer) {
   var self = this;
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
 
-  //log('tx: '+tx.id);
+  //this.log('tx: '+tx.id);
   if(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script){
     if(isBMTransaction(tx)){
       var src = tx.inputs[0].script.toAddress(this.node.network);
@@ -347,7 +367,7 @@ BitMExService.prototype.setupRoutes = function(app, express) {
   var self = this
   // Set up routes
   app.get('/hello', function(req, res) {
-    log('GET Hello');
+    this.log('GET Hello');
     res.send('world');
 
     for (var i = 0; i < self.subscriptions.broadcast.length; i++) {
@@ -363,5 +383,22 @@ BitMExService.prototype.getRoutePrefix = function() {
   return 'bmservice'
 };
 
+/* Set API endpoints */
+BitMExService.prototype.getAPIMethods = function() {
+  // var self = this
+  return methods = [
+    ['tryapi', this, this.tryapi, 1],
+    ['addnode', this, this.addNode, 2],
+    ['createnode', this, this.createNode, 1],
+    ['sendmessage', this, this.sendMessage, 3],
+    ['getmessages', this, this.getMessages, 2],
+  ];
+};
+
+BitMExService.prototype.log = function(msg){
+  return BMutils.log('BM', msg)
+}
+
 module.exports = BitMExService;
 module.exports.sendMessage = this.sendMessage //TODO: remove (replaced by APIcalls)
+// module.exports.dataDir = dataDir
