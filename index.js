@@ -14,6 +14,7 @@ const BTC = BMutils.BTC
 const MODE = BMutils.MODE
 const DBG = BMutils.DBG
 
+const MAX_PAYLOAD_SIZE = 76
 const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
 /* Set Data directory */
@@ -46,7 +47,7 @@ function BitMExService(options){
 util.inherits(BitMExService, EventEmitter);
 
 /* Required services */
-BitMExService.dependencies = ['bitcoind'];
+BitMExService.dependencies = ['bitcoind','web','insight-api'];
 
 /* Start service */
 BitMExService.prototype.start = function(callback) {
@@ -104,11 +105,9 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
 /* __________ BM NETWORK FUNCTIONS  __________ */
 /* Loads an existing network of nodes from file */
 BitMExService.prototype.loadNet = function(name){
-  //TODO: name must correspond to a file
   try{
     this.bmnet = new BMNet({node: this.node, bus: this.bus, name}, dataDir)
   }catch(e){}
-
 }
 
 /* [API] Adds a new node to a BM network. Requires PrivateKey */
@@ -159,13 +158,15 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
     var srcAddr = this.bmnet.getNodeAddress(src);
     var dstAddr = this.bmnet.getNodeAddress(dst);
   } catch (e){ return callback(e) }
-
+  this.log("src:"+srcAddr)
+  this.log("dst: "+dstAddr)
   /* Split message in chunks */
-  var chunks = chunkMessage(message, 76)
+  var chunks = chunkMessage(message, MAX_PAYLOAD_SIZE)
 
   /* Function to send a transaction with an embedde message chunk */
   var self = this
   var sendMsgTransaction = function(seq){
+    if(DBG) self.log("send chunk "+seq)
     /* Get UTXOs to fund new transaction */
     self.insight.getUnspentUtxos(srcAddr, function(err, utxos){
       if(err) return callback("[insight.getUnspentUtxos]: "+err);
@@ -173,9 +174,8 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
         if(self.node.network == BTC)
           return callback("[BM] ERR: Not enough Satoshis to make transaction");
         else{
-          //TODO: get new coins from faucet
+          //TODO: get new coins from faucet AND RETRY
           return callback("[BM] ERR: Not enough Satoshis to make transaction");
-          ;
         }
       }
 
@@ -193,20 +193,18 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
         .addData(prefix+chunks[seq])
       } catch (e){ return callback(e) }
 
-
       /* Set estimate fee (not based on priority) -> check returned value */
       tx.fee(tx.getFee())
 
       /* Let the node sign the transaction */
       try{
-        this.bmnet.getNode(src).signTransaction(tx)
+        self.bmnet.getNode(src).signTransaction(tx)
       } catch(e){ return callback(e) }
 
       //TODO: verify serialization errors (see at the end of this file)
 
       /* Broadcast Transaction */
-      var self = this
-      this.insight.broadcast(tx, function (err, txid) {
+      self.insight.broadcast(tx, function(err, txid) {
         if(err) return callback('[insight.broadcast]: '+err);
 
         if(DBG) self.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
@@ -277,7 +275,7 @@ BitMExService.prototype.collectMessage = function (src, dst, data){
   /* If a message is complete, deliver it */
   if(Object.keys(msgDB[src+dst]).length == msglen){
     fullmsg = assembleMessage(msgDB[src+dst])
-    if(this.bmnodes[dst.toString()]){
+    if(this.bmnet.getNodeID(dst.toString())){
       this.deliverMessage(src, dst, fullmsg)
       msgDB[src+dst] = []
     }
