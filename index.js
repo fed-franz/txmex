@@ -36,8 +36,6 @@ function BitMExService(options){
     this.subscriptions.newmessage = [];
     this.subscriptions.broadcast = [];
     this.messageStorage = {} //TODO: change name?
-
-    this.insight = new explorers.Insight(this.node.network);
   }
 
   this.on('error', function(err) {
@@ -52,13 +50,14 @@ BitMExService.dependencies = ['bitcoind'];
 
 /* Start service */
 BitMExService.prototype.start = function(callback) {
+  this.insight = new explorers.Insight(this.node.network);
   this.node.services.bitcoind.on('tx', this.transactionHandler.bind(this));
   this.bus = this.node.openBus()
   this.bus.subscribe('bmservice/newmessage');
   this.bus.subscribe('bmservice/broadcast');
 
   try {
-    this.loadNet("testbmnet") //TODO: make net name dynamic for multi net
+    this.loadNet("tstBMnet") //TODO: make net name dynamic for multi net
   } catch (e) {
     return this.log("ERR: Failed to start. RET:"+e);
   }
@@ -168,10 +167,10 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
   var self = this
   var sendMsgTransaction = function(seq){
     /* Get UTXOs to fund new transaction */
-    this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
+    self.insight.getUnspentUtxos(srcAddr, function(err, utxos){
       if(err) return callback("[insight.getUnspentUtxos]: "+err);
       if(utxos.length == 0){
-        if(this.node.network == BTC)
+        if(self.node.network == BTC)
           return callback("[BM] ERR: Not enough Satoshis to make transaction");
         else{
           //TODO: get new coins from faucet
@@ -206,10 +205,11 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
       //TODO: verify serialization errors (see at the end of this file)
 
       /* Broadcast Transaction */
+      var self = this
       this.insight.broadcast(tx, function (err, txid) {
         if(err) return callback('[insight.broadcast]: '+err);
 
-        if(DBG) this.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
+        if(DBG) self.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
 
         /* Iterate on chunks */
         if(seq == chunks.length-1){
@@ -231,7 +231,9 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
     if(balance < (2*MIN_AMOUNT*chunks.length))
       return callback("[BM]: not enough funds to send message");
 
-    sendMsgTransaction(0)
+    try{
+      sendMsgTransaction(0)
+    }catch(e){return callback(e)}
     return callback(null, "Message sent")
   });
 }
