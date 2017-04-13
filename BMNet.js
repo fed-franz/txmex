@@ -2,11 +2,6 @@
 'use strict';
 
 //TODO: createNetwork(numNodes)
-// module.exports = {
-//   addBMNode: addBMNode,
-//   receiveMessage: receiveMessage,
-//   sendMessage: sendMessage,
-// };
 
 var bitcore = require('bitcore-lib')
 var explorers = require('bitcore-explorers');
@@ -15,7 +10,7 @@ const BMService = require('./index');
 const BMNode = require('./BMNode')
 const BMutils = require('./BMutils')
 
-// var BMS = new BMService({})
+const MODE = BMutils.MODE
 const DBG = BMutils.DBG
 var BM_NET_FILE = 'bmnet.json'
 var tBTC = bitcore.Networks.testnet
@@ -52,11 +47,33 @@ BMNet.prototype.loadBMNet = function(){
   })
 }
 
+/* Creates a new dynamic node ID */
+BMNet.prototype.generateID = function(base){
+  if(!base) base = 'N'
+  var maxn = 1
+
+  for(var id in this.bmnodes){
+    if(id.startsWith(base)){
+      var idnum = id.substring(base.length,id.length)
+      if(BMutils.isNum(idnum) && idnum >= maxn) maxn = parseInt(idnum)+1
+    }
+  }
+
+  return base+maxn
+}
+
 /* Adds a BMNode to this network */
-BMNet.prototype.addBMNode = function(nodeData, NEW){
+BMNet.prototype.addBMNode = function(nodeData, mode){
   if(DBG) this.log("Adding node...")
-  //TODO if(id == 'auto') create dynamic id
-  this.bmnodes[nodeData.id] = new BMNode(this, nodeData, NEW)
+  var id = nodeData.id //TODO: use AUTO and TMP modes
+  if(id == 'auto') nodeData.id = id = this.generateID()
+  if(id == 'temp'){
+    nodeData.id = id = this.generateID('TMP')
+    mode = MODE.TMP
+  }
+
+  this.bmnodes[id] = new BMNode(this, nodeData, mode)
+  return id
 }
 
 /* Returns the node object */
@@ -100,34 +117,8 @@ function getNodeStatus(name){
     this.log("utxos:"+JSON.stringify(utxos,null,2));
   });
 }
+
 /*****************************************************************************/
-
-/* Send a message through BM service */
-//TODO: remove?
-function sendMessage(source, dest, message, key){
-  // payload = randHex(100) //TEMPORARY
-  msg = message //+ payload //TODO:insert length after command and remove from chunks
-
-  bms = new BMService()
-
-  if(!source){
-    var tmpNode = createBMNode()
-    source = tmpNode.name
-    bms.loadNode(tmpNode)
-  } //Create a new address
-
-
-  //TODO: add callback
-
-  bms.sendMessage(source, dest, msg, key, function(){
-    this.log('Message Sent');
-  })
-}
-
-/* Retrieve messages for Node Nx*/
-function receiveMessage (node, sender, msg){
-  //bms.getMessages()
-};
 
 /* Prints log with Node prefix */
 BMNet.prototype.log = function(msg){

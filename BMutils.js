@@ -4,6 +4,7 @@ const BTC = bitcore.Networks.livenet
 
 module.exports = {
   log: prefixLog,
+  isNum: isNum,
   hexToAscii: hexToAscii,
   getKeyByValue: getKeyByValue,
   createBTCKey: createBTCKey,
@@ -11,8 +12,10 @@ module.exports = {
 };
 
 module.exports.DBG = true
-
-
+module.exports.MODE = {
+    NEW : 1,
+    TMP : 2
+}
 
 /* Prints log with BM prefix */
 function prefixLog(prefix, msg){
@@ -36,6 +39,11 @@ function randHex(length) {
   for (var i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
 
   return result;
+}
+
+/* Check if 'num' is a number */
+function isNum(num){
+    return !isNaN(num)
 }
 
 /* Return the key of a value in a dictionary */
