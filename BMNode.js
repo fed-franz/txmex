@@ -132,9 +132,8 @@ BMNode.prototype.handleMessage = function (message){ //node, sender,
 };
 
 /* Sign a transaction */
-BMNode.prototype.signMessage = function(tx){
+BMNode.prototype.signTransaction = function(tx){
   tx.sign(this.privKey)
 }
 
 module.exports = BMNode;
-// module.exports.sign = signMessage

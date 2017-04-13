@@ -5,9 +5,13 @@ var bitcore = require('bitcore-lib');
 var explorers = require('bitcore-explorers');
 
 // var Service = require('bitcore-node').Service;
+const TX_PREFIX = "BM"
 const BMNode = require('./BMNode');
 const BMNet = require('./BMNet');
 const BMutils = require('./BMutils');
+const BTC = BMutils.BTC
+
+const DBG = BMutils.DBG
 
 const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
@@ -17,34 +21,7 @@ if(!fs.existsSync(dataDir)){
   fs.mkdirSync(dataDir);
 }
 
-
-/* HELPER FUNCTIONS */
-/********************************************************************/
 const hexToAscii = BMutils.hexToAscii
-
-/* Split message 'str' in chunks of 'size' letters */
-function chunkMessage(str, size) {
-  var numChunks = Math.ceil(str.length / size),
-      chunks = new Array(numChunks);
-
-  for(var i = 0, o = 0; i < numChunks; ++i, o += size) {
-    chunks[i] = str.substr(o, size);
-  }
-
-  return chunks;
-}
-
-/* Put chunks together */
-function assembleMessage(msgArray){
-  var fullmsg = ""
-  for(i=0;i<msgArray.length;i++){
-      fullmsg += msgArray[i]
-  }
-
-  return fullmsg
-}
-
-/********************************************************************/
 
 /* BM Service Class */
 /********************************************************************/
@@ -57,7 +34,7 @@ function BitMExService(options){
     this.subscriptions = {};
     this.subscriptions.newmessage = [];
     this.subscriptions.broadcast = [];
-    this.messageStorage = {}
+    this.messageStorage = {} //TODO: change name?
 
     this.insight = new explorers.Insight(this.node.network);
   }
@@ -66,12 +43,11 @@ function BitMExService(options){
     this.log(err.stack);
   });
 }
+/* inherits the service base class */
+util.inherits(BitMExService, EventEmitter);
 
 /* Required services */
 BitMExService.dependencies = ['bitcoind'];
-
-/* inherits the service base class */
-util.inherits(BitMExService, EventEmitter);
 
 /* Start service */
 BitMExService.prototype.start = function(callback) {
@@ -86,7 +62,7 @@ BitMExService.prototype.start = function(callback) {
     return this.log("ERR: Failed to start. RET:"+e);
   }
 
-  this.emit('ready');
+  this.emit('ready'); //TODO: necessary?
   callback();
 };
 
@@ -96,9 +72,6 @@ BitMExService.prototype.stop = function(callback) {
   callback();
 };
 
-BitMExService.prototype.loadNet = function(name){
-  this.bmnet = new BMNet({node: this.node, bus: this.bus, name}, dataDir)
-}
 /* Set service events */
 BitMExService.prototype.getPublishEvents = function() {
   return [
@@ -128,22 +101,17 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
   }
 };
 
-/* __________ BM Functions __________ */
-//TODO: temp
-BitMExService.prototype.tryapi = function(a, callback){
-  self = this
-  this.log("Value:"+a);
-  // this.log("bmnodes"+self.bmnodes)
-  for (i in self.bmnodes) {
-    this.log("Name: " + i + " Value: " + self.bmnodes[i]);
-  }
-  this.log("tryapi")
-  return callback(null,"OK2");
+/* __________ BM NETWORK FUNCTIONS  __________ */
+/* Loads an existing network of nodes from file */
+BitMExService.prototype.loadNet = function(name){
+  //TODO: name must correspond to a file
+  this.bmnet = new BMNet({node: this.node, bus: this.bus, name}, dataDir)
 }
 
+/* [API] Adds a new node to a BM network. Requires PrivateKey */
 BitMExService.prototype.addNode = function(id, privKey, callback){
   if(!id) throw "ERR (addnode): Missing ID"
-  //TODO if(id == 'auto') create dynamic id
+
   try {
     this.bmnet.addBMNode({id, privKey}, true)
   } catch (e) {
@@ -153,25 +121,41 @@ BitMExService.prototype.addNode = function(id, privKey, callback){
   return callback(null, "Node added")
 }
 
+/* [API] Creates a new node */
 BitMExService.prototype.createNode = function(id, callback){
+  if(DBG) this.log("Creating new node")
   if(!id) throw "ERR (addnode): Missing ID"
 
-  this.log("Creating new node")
   try {
     this.bmnet.addBMNode({id}, true)
-  } catch (e) {
-    return callback(e)
-  }
+  } catch (e){ return callback(e) }
 
   return callback(null, "Node created")
 }
 
-//TODO: handle multiple messages from same A to same B
-BitMExService.prototype.sendMessage = function(source, dest, message, callback){
-  this.log("sending \'"+message+"\' from "+source+" to "+dest);
+/* [API] Deletes a node */ //TODO
 
-  var srcAddr = this.bmnet.getNodeAddress(source);
-  var dstAddr = this.bmnet.getNodeAddress(dest);
+/*__________ SENDER FUNCTIONS __________*/
+/* Split message 'str' in chunks of 'size' letters */
+function chunkMessage(str, size) {
+  var numChunks = Math.ceil(str.length / size),
+      chunks = new Array(numChunks);
+
+  for(var i = 0, o = 0; i < numChunks; ++i, o += size) {
+    chunks[i] = str.substr(o, size);
+  }
+
+  return chunks;
+}
+
+/* [API] Send a message */
+BitMExService.prototype.sendMessage = function(src, dst, message, callback){
+  if(DBG) this.log("sending \'"+message+"\' from "+src+" to "+dst);
+
+  try {
+    var srcAddr = this.bmnet.getNodeAddress(src);
+    var dstAddr = this.bmnet.getNodeAddress(dst);
+  } catch (e){ return callback(e) }
 
   /* Split message in chunks */
   var chunks = chunkMessage(message, 76)
@@ -181,66 +165,89 @@ BitMExService.prototype.sendMessage = function(source, dest, message, callback){
   var sendMsgTransaction = function(seq){
     /* Get UTXOs to fund new transaction */
     this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
-      if(err) return this.log(BMlog+'ERR (insight.getUnspentUtxos):'+err);
-      if(utxos.length == 0) return self.log(BMlog+'ERR: Not enough Satoshis to make transaction');
-      //TODO: get new coins from faucet
+      if(err) return callback("[insight.getUnspentUtxos]: "+err);
+      if(utxos.length == 0){
+        if(this.node.network == BTC)
+          return callback("[BM] ERR: Not enough Satoshis to make transaction");
+        else{
+          //TODO: get new coins from faucet
+          return callback("[BM] ERR: Not enough Satoshis to make transaction");
+          ;
+        }
+      }
 
+      /* Set prefix */
       seqcode = seq.toString(16)
       len = chunks.length.toString(16)
-      var prefix = "BM" + len + seqcode
+      var prefix = TX_PREFIX + len + seqcode
 
       /* Create Transaction */
-      //TODO: put this in try/catch block
-      var transaction = new bitcore.Transaction()
-      .from(utxos)
-      .to(dstAddr, MIN_AMOUNT)
-      .change(srcAddr)
-      .addData(prefix+chunks[seq])
+      try {
+        var tx = new bitcore.Transaction()
+        .from(utxos)
+        .to(dstAddr, MIN_AMOUNT)
+        .change(srcAddr)
+        .addData(prefix+chunks[seq])
+      } catch (e){ return callback(e) }
 
-      // Set estimate fee (not based on priority) -> check returned value
-      transaction.fee(transaction.getFee())
+
+      /* Set estimate fee (not based on priority) -> check returned value */
+      tx.fee(tx.getFee())
 
       /* Let the node sign the transaction */
-      if(self.bmnodes)
-        self.bmnodes[srcAddr.toString()].bmnode.signMessage(transaction)
+      try{
+        this.bmnet.getNode(src).signTransaction(tx)
+      } catch(e){ return callback(e) }
 
       //TODO: verify serialization errors (see at the end of this file)
 
       /* Broadcast Transaction */
-      this.insight.broadcast(transaction, function (err, txid) {
-        if (err) return this.log('ERR (insight.broadcast): ' + err);
+      this.insight.broadcast(tx, function (err, txid) {
+        if(err) return callback('[insight.broadcast]: '+err);
 
-        this.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
+        if(DBG) this.log('Sent chunk:'+chunks[seq]+". Tx: " + txid);
 
+        /* Iterate on chunks */
         if(seq == chunks.length-1){
-          // this.log("All chunks sent");
-          if(callback)
-            return callback()
+          return callback("Message Sent!")
         }
-        else sendMsgTransaction(seq+1)
+        else /* Send next chunk */
+          sendMsgTransaction(seq+1)
       });
     })//getUnspentUtxos
   }//sendMsgTransaction
 
   /* Check if there is enough funds to send the whole message */
   this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
-    if(err) return this.log("ERR: "+err);
+    if(err) return callback("[insight.getUnspentUtxos]: "+err);
 
     var balance = 0
     for (var i = 0; i < utxos.length; i++)
       balance +=utxos[i]['satoshis'];
     if(balance < (2*MIN_AMOUNT*chunks.length))
-      return callback("ERR: not enough funds to send message");
+      return callback("[BM]: not enough funds to send message");
 
     sendMsgTransaction(0)
     return callback(null, "Message sent")
   });
 }
 
-/* Emits 'newmessage' event notifications to BM Nodes*/
+/*__________ RECEIVER FUNCTIONS __________*/
+/* Put chunks together */
+function assembleMessage(msgArray){
+  var fullmsg = ""
+  for(i=0;i<msgArray.length;i++){
+      fullmsg += msgArray[i]
+  }
+
+  return fullmsg
+}
+
+/* Emits 'newmessage' event notifications to BM Nodes */
+//TODO: replace with this.bmnet.getNode().receiveMessage(msg)
 BitMExService.prototype.deliverMessage = function(src, dst, msg){
-  var srcNode = this.bmnodes[src.toString()].name
-  var dstNode = this.bmnodes[dst.toString()].name
+  var srcNode = this.bmnet.getNodeID(src.toString()) // bmnodes[src.toString()].name
+  var dstNode = this.bmnet.getNodeID(dst.toString())
   var params = {src:srcNode, dst:dstNode, msg:msg}
 
   for(var i = 0; i < this.subscriptions.newmessage.length; i++) {
@@ -249,12 +256,13 @@ BitMExService.prototype.deliverMessage = function(src, dst, msg){
 }
 
 /* Collects received chunks */
+//TODO: handle multiple messages from A to B. Add Msg ID?
 BitMExService.prototype.collectMessage = function (src, dst, data){
   var msglen = parseInt(data.charAt(3), 16);
   var msgseq = parseInt(data.charAt(4), 16);
   var msg = data.slice(5)
 
-  /* Add cunk to temporary storage */
+  /* Add chunk to temporary storage */
   var msgDB = this.messageStorage
   if(!msgDB[src+dst])
     msgDB[src+dst] = []
@@ -270,52 +278,62 @@ BitMExService.prototype.collectMessage = function (src, dst, data){
   }
 }
 
-/* Check if 'tx' contains an BM protocol message */
-function isBMTransaction(tx){
+/* Check 'tx' for BM messages */
+BitMExService.prototype.isBMTransaction = function(tx){
   if(tx.outputs.length < 2) return false
 
-  script = tx.outputs[1].script
+  /* Get script for the 2nd output */
+  var script = tx.outputs[1].script
   if(!script.isDataOut()) return false
 
-  msgsplit = script.toString().split(" ")
-  msgcode = msgsplit[msgsplit.length-1]
-  data = hexToAscii(msgcode)
+  /* Decode */
+  var msgsplit = script.toString().split(" ")
+  var msgcode = msgsplit[msgsplit.length-1]
+  var data = hexToAscii(msgcode)
 
-  BMcode = data.substring(0,3)
-  if(BMcode.localeCompare("BM")!=0) return false
+  /* Verify BM prefix */
+  var BMcode = data.substring(0,3)
+  if(BMcode.localeCompare(TX_PREFIX)!=0) return false
 
   return true
-}
+}//isBMTransaction()
 
-/* transactionHandler */
+/* Handles received transactions */
 BitMExService.prototype.transactionHandler = function(txBuffer) {
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
 
-  //this.log('tx: '+tx.id);
   if(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script){
-    if(isBMTransaction(tx)){
-      var src = tx.inputs[0].script.toAddress(this.node.network);
-      var dst = tx.outputs[0].script.toAddress(this.node.network);
+    if(this.isBMTransaction(tx)){
+      if(DBG) this.log('New BM transaction. tx: '+tx.id);
+      var srcAddr = tx.inputs[0].script.toAddress(this.node.network);
+      var dstAddr = tx.outputs[0].script.toAddress(this.node.network);
 
       var msgsplit = tx.outputs[1].script.toString().split(" ")
       var data = hexToAscii(msgsplit[msgsplit.length-1])
 
-      this.collectMessage(src, dst, data)
+      this.collectMessage(srcAddr, dstAddr, data)
     }//if
   }//if
+}//transactionHandler()
+
+/*__________ WEB INTERFACE __________*/
+/* Set server at http://localhost:3001/bitmex/ */
+BitMExService.prototype.getRoutePrefix = function() {
+  return 'bitmex'
 };
 
-/* Web Endpoint */
+/* Web Endpoints */
 BitMExService.prototype.setupRoutes = function(app, express) {
   var self = this
-  // Set up routes
+  //TODO: TMP remove
   app.get('/hello', function(req, res) {
     self.log('GET Hello');
     res.send('world');
-  }
+  });
 
   app.get('/broadcast', function(req, res) {
     self.log('[Web] broadcast request received');
+    //TODO: handle 'req'
     res.send('Broadcasting message \'hello world\'');
 
     for (var i = 0; i < self.subscriptions.broadcast.length; i++) {
@@ -325,11 +343,10 @@ BitMExService.prototype.setupRoutes = function(app, express) {
 
   // Serve static content
   app.use('/static', express.static(__dirname + '/static'));
+  //TODO: status
 };
 
-BitMExService.prototype.getRoutePrefix = function() {
-  return 'bmservice'
-};
+
 
 /* Set API endpoints */
 BitMExService.prototype.getAPIMethods = function() {
@@ -344,9 +361,11 @@ BitMExService.prototype.getAPIMethods = function() {
   ];
 };
 
+/*__________ LOG __________*/
 BitMExService.prototype.log = function(msg){
   return BMutils.log('BM', msg)
 }
 
+/*__________ EXPORT __________*/
 module.exports = BitMExService;
 module.exports.sendMessage = this.sendMessage //TODO: remove (replaced by APIcalls)
