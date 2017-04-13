@@ -8,7 +8,6 @@ const MODE = BMutils.MODE
 
 /***** Constructor *****/
 function BMNode(bmnet, nodeData, mode){
-  if(DBG) this.log("BMNode()")
   // EventEmitter.call(this)
   if(!bmnet) throw "ERROR: Missing BMNet"
 

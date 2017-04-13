@@ -31,9 +31,11 @@ function BMNet (options, dir){
   this.loadBMNet()
 }
 
+/* Load nodes data frome file */
 BMNet.prototype.loadBMNet = function(){
   if(DBG) this.log("Loading nodes...")
   var netDir = this.dir
+  //TODO: if(this.dir) does not exist...
   var files = fs.readdirSync(netDir)
   var self = this
   files.forEach(function(file){
@@ -79,14 +81,14 @@ BMNet.prototype.addBMNode = function(nodeData, mode){
 /* Returns the node object */
 BMNet.prototype.getNode = function(id){
   if(this.bmnodes[id]) return this.bmnodes[id];
-  else throw "[BMNet] Invalid ID"
+  else return null
 }
 
 /* Return the node ID for a specific BTC address */
 BMNet.prototype.getNodeID = function(addr) {
   var nodes = this.bmnodes
   var node = Object.keys(nodes).find(id => nodes[id].getAddr() === addr);
-  if(!node) throw "[BMNet] No node corresponds to the given address"
+  if(!node) return null
   return node.id
 };
 
