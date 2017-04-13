@@ -55,29 +55,36 @@ BMNet.prototype.loadBMNet = function(){
 /* Adds a BMNode to this network */
 BMNet.prototype.addBMNode = function(nodeData, NEW){
   if(DBG) this.log("Adding node...")
+  //TODO if(id == 'auto') create dynamic id
   this.bmnodes[nodeData.id] = new BMNode(this, nodeData, NEW)
 }
 
+/* Returns the node object */
+BMNet.prototype.getNode = function(id){
+  if(this.bmnodes[id]) return this.bmnodes[id];
+  else throw "[BMNet] Invalid ID"
+}
+
+/* Return the node ID for a specific BTC address */
 BMNet.prototype.getNodeID = function(addr) {
   var nodes = this.bmnodes
   var node = Object.keys(nodes).find(id => nodes[id].getAddr() === addr);
+  if(!node) throw "[BMNet] No node corresponds to the given address"
   return node.id
 };
 
+/* Return the BTC address of a node */
 BMNet.prototype.getNodeAddress = function(id) {
-  return this.bmnodes[id].getAddr()
+  if(this.bmnodes[id])
+    return this.bmnodes[id].getAddr()
+  else if(bitcore.Address.isValid(id, this.node.network))
+    return id
+  else throw "[BMNet] Invalid Node ID or Address"
 };
 
-/*****************************************************************************/
-
-/* Creates a new Wallet for N nodes (addresses) */
 //TODO: mv to BMNode
-
-
-function loadBMNode(){
-  //readADNodeFile
-}
-
+/*****************************************************************************/
+function loadBMNode(){;} //Reads node file
 function updateBMNode(name, newData){
   var nodeData = loadBMNode(name);
 }
@@ -93,10 +100,10 @@ function getNodeStatus(name){
     this.log("utxos:"+JSON.stringify(utxos,null,2));
   });
 }
-
 /*****************************************************************************/
 
 /* Send a message through BM service */
+//TODO: remove?
 function sendMessage(source, dest, message, key){
   // payload = randHex(100) //TEMPORARY
   msg = message //+ payload //TODO:insert length after command and remove from chunks
