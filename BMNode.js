@@ -4,35 +4,22 @@ var util = require('util');
 var fs = require('fs');
 var BMutils = require('./BMutils')
 const DBG = BMutils.DBG
-
-/* Functions */
-/********************************************************************/
-function saveBMNode(nodeData, nodeDir){
-  if (!fs.existsSync(nodeDir))
-    fs.mkdirSync(nodeDir);
-
-  fs.writeFileSync(nodeDir+'/'+nodeData.id+'.dat', JSON.stringify(nodeData, null, 2));
-}
-
-/********************************************************************/
+const MODE = BMutils.MODE
 
 /***** Constructor *****/
-function BMNode(bmnet, nodeData, NEW){
-  //nodeData.dataDir
-  //TODO: if(!net && !nodeData && !addr) createBMNode(, true)
+function BMNode(bmnet, nodeData, mode){
+  if(DBG) this.log("BMNode()")
   // EventEmitter.call(this)
   if(!bmnet) throw "ERROR: Missing BMNet"
 
   this.bmnet = bmnet
   this.id = nodeData.id
-  this.privKey = nodeData.privKey
-
-  if(NEW) this.createBMNode(nodeData)
+  this.privKey = (nodeData.privKey ? nodeData.privKey : BMutils.createBTCKey())
 
   /* Subscribe to BM events */
-  var self = this
+  if(DBG) this.log("Subscribing events")
   var bus = bmnet.bus
-
+  var self = this
   bus.on('bmservice/newmessage', function(message){
     if(message.dst == self.id){
       // self.log('(Address: '+self.getAddr()+')');
@@ -49,28 +36,28 @@ function BMNode(bmnet, nodeData, NEW){
     })
   }
 
-  if(DBG){
-    this.log("Hello World!")
-    this.log("Network:"+bmnet.name)
-  }
+  if(mode == MODE.NEW && mode != MODE.TMP)
+    this.saveData()
+
+  if(DBG) this.log("Hello World!")
 }
 
 util.inherits(BMNode, EventEmitter);
 
-/* Create new Node */
-BMNode.prototype.createBMNode = function(nodeData, TMP){
-  if(!this.privKey)
-    this.privKey = BMutils.createBTCKey()
-
+/* Save BMNode to file */
+BMNode.prototype.saveData = function(){
+  if(DBG) this.log("Saving data...")
+  var dir = this.bmnet.dir
   var BMNode = {
     "id": this.id,
     "privKey": this.privKey,
     "addr": this.getAddr(),
   }
 
-  if(!TMP) saveBMNode(BMNode, this.bmnet.dir);
-
-  return BMNode
+  /* Write to disk */
+  if (!fs.existsSync(dir))
+    fs.mkdirSync(dir);
+  fs.writeFileSync(dir+'/'+this.id+'.dat', JSON.stringify(BMNode, null, 2));
 }
 
 /* Prints log with Node prefix */
@@ -137,3 +124,8 @@ BMNode.prototype.signTransaction = function(tx){
 }
 
 module.exports = BMNode;
+
+/* Retrieve messages for Node Nx*/
+function receiveMessage (node, sender, msg){
+  //bms.getMessages()
+};

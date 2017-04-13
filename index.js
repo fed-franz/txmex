@@ -6,11 +6,12 @@ var explorers = require('bitcore-explorers');
 
 // var Service = require('bitcore-node').Service;
 const TX_PREFIX = "BM"
+
 const BMNode = require('./BMNode');
 const BMNet = require('./BMNet');
 const BMutils = require('./BMutils');
 const BTC = BMutils.BTC
-
+const MODE = BMutils.MODE
 const DBG = BMutils.DBG
 
 const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
@@ -105,15 +106,18 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
 /* Loads an existing network of nodes from file */
 BitMExService.prototype.loadNet = function(name){
   //TODO: name must correspond to a file
-  this.bmnet = new BMNet({node: this.node, bus: this.bus, name}, dataDir)
+  try{
+    this.bmnet = new BMNet({node: this.node, bus: this.bus, name}, dataDir)
+  }catch(e){}
+
 }
 
 /* [API] Adds a new node to a BM network. Requires PrivateKey */
 BitMExService.prototype.addNode = function(id, privKey, callback){
-  if(!id) throw "ERR (addnode): Missing ID"
+  if(!id) callback("ERR (addnode): Missing ID")
 
   try {
-    this.bmnet.addBMNode({id, privKey}, true)
+    this.bmnet.addBMNode({id, privKey}, MODE.NEW)
   } catch (e) {
     return callback(e)
   }
@@ -127,10 +131,10 @@ BitMExService.prototype.createNode = function(id, callback){
   if(!id) throw "ERR (addnode): Missing ID"
 
   try {
-    this.bmnet.addBMNode({id}, true)
+    var nodeID = this.bmnet.addBMNode({id}, MODE.NEW)
   } catch (e){ return callback(e) }
 
-  return callback(null, "Node created")
+  return callback(null, "Node "+nodeID+" created")
 }
 
 /* [API] Deletes a node */ //TODO
@@ -358,6 +362,7 @@ BitMExService.prototype.getAPIMethods = function() {
     ['removenode', this, this.createNode, 1],
     ['sendmessage', this, this.sendMessage, 3],
     ['getmessages', this, this.getMessages, 2],
+    ['getnodestatus', this, this.getNodeStatus, 1],
   ];
 };
 
@@ -368,4 +373,4 @@ BitMExService.prototype.log = function(msg){
 
 /*__________ EXPORT __________*/
 module.exports = BitMExService;
-module.exports.sendMessage = this.sendMessage //TODO: remove (replaced by APIcalls)
+// module.exports.sendMessage = this.sendMessage //TODO: remove (replaced by APIcalls)
