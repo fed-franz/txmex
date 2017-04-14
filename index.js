@@ -106,8 +106,8 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
 /* Loads an existing network of nodes from file */
 BitMExService.prototype.loadNet = function(name){
   try{
-    this.bmnet = new BMNet({node: this.node, bus: this.bus, name}, dataDir)
-  }catch(e){}
+    this.bmnet = new BMNet(this, name, dataDir)
+  }catch(e){this.log(e)}
 }
 
 /* [API] Adds a new node to a BM network. Requires PrivateKey */
@@ -137,19 +137,16 @@ BitMExService.prototype.createNode = function(id, callback){
 
 /* [API] Deletes a node */ //TODO
 
-/*__________ SENDER FUNCTIONS __________*/
-/* Split message 'str' in chunks of 'size' letters */
-function chunkMessage(str, size) {
-  var numChunks = Math.ceil(str.length / size),
-      chunks = new Array(numChunks);
-
-  for(var i = 0, o = 0; i < numChunks; ++i, o += size) {
-    chunks[i] = str.substr(o, size);
-  }
-
-  return chunks;
+/* [API] Print the status of a node */
+BitMExService.prototype.getNodeStatus = function(id, callback){
+  try {
+    var node = this.bmnet.getNode(id)
+    if(!node) return callback(null, "Wrong node ID")
+    return node.getStatus(callback)
+  } catch (e) { return callback(e) }
 }
 
+/*__________ SENDER FUNCTIONS __________*/
 /* [API] Send a message */
 BitMExService.prototype.sendMessage = function(src, dst, message, callback){
   if(DBG) this.log("sending \'"+message+"\' from "+src+" to "+dst);
@@ -161,7 +158,7 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
   this.log("src:"+srcAddr)
   this.log("dst: "+dstAddr)
   /* Split message in chunks */
-  var chunks = chunkMessage(message, MAX_PAYLOAD_SIZE)
+  var chunks = BMutils.chunkMessage(message, MAX_PAYLOAD_SIZE)
 
   /* Function to send a transaction with an embedde message chunk */
   var self = this
@@ -237,16 +234,6 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
 }
 
 /*__________ RECEIVER FUNCTIONS __________*/
-/* Put chunks together */ //TODO: mv to BMutils as a general function
-function assembleMessage(msgArray){
-  var fullmsg = ""
-  for(i=0;i<msgArray.length;i++){
-      fullmsg += msgArray[i]
-  }
-
-  return fullmsg
-}
-
 /* Emits 'newmessage' event notifications to BM Nodes */
 //TODO: replace with this.bmnet.getNode().receiveMessage(msg) ?
 BitMExService.prototype.deliverMessage = function(src, dst, msg){
@@ -275,7 +262,7 @@ BitMExService.prototype.collectMessage = function (src, dst, data){
 
   /* If a message is complete, deliver it */
   if(Object.keys(msgDB[src+dst]).length == msglen){
-    var fullmsg = assembleMessage(msgDB[src+dst])
+    var fullmsg = BMutils.assembleMessage(msgDB[src+dst])
     if(this.bmnet.getNodeID(dst.toString())){
       this.deliverMessage(src, dst, fullmsg)
       msgDB[src+dst] = []

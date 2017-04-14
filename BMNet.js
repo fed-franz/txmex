@@ -19,16 +19,18 @@ var insight = new explorers.Insight(tBTC);
 var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
 /***** Constructor *****/
-function BMNet (options, dir){
-  if(options){
-    this.name = options.name
-    this.node = options.node
-    this.bus = options.bus
+function BMNet (bms, name, dir){
+  if(name){
+    this.name = name
+    this.bms = bms
     this.bmnodes = {}
     this.dir = dir
-  }
 
-  this.loadBMNet()
+    this.loadBMNet()
+  }
+  else{ //TODO: create new network
+    throw "No name provided"
+  }
 }
 
 /* Load nodes data frome file */
@@ -101,7 +103,7 @@ BMNet.prototype.getNodeID = function(addr) {
 BMNet.prototype.getNodeAddress = function(id) {
   if(this.bmnodes[id])
     return this.bmnodes[id].getAddr()
-  else if(bitcore.Address.isValid(id, this.node.network))
+  else if(bitcore.Address.isValid(id, this.bms.node.network))
     return id
   else return null
 };
@@ -111,19 +113,6 @@ BMNet.prototype.getNodeAddress = function(id) {
 function loadBMNode(){;} //Reads node file
 function updateBMNode(name, newData){
   var nodeData = loadBMNode(name);
-}
-
-/* Get Node Status */
-function getNodeStatus(name){
-  var nodeData = loadBMNode(name)
-  this.log("Node Data:"+JSON.stringify(nodeData,null,2));
-
-  //this.bmnet.node.services.bmservice.insight
-  insight.getUnspentUtxos(nodeData.tstAddr, function(err, utxos){
-    if(err) return console.log("ERR (getUnspentUtxos): "+err);
-
-    this.log("utxos:"+JSON.stringify(utxos,null,2));
-  });
 }
 
 /*****************************************************************************/

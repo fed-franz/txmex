@@ -14,10 +14,10 @@ function BMNode(bmnet, nodeData, mode){
   this.bmnet = bmnet
   this.id = nodeData.id
   this.privKey = (nodeData.privKey ? nodeData.privKey : BMutils.createBTCKey())
-  this.addr = BMutils.getBTCAddr(this.privKey, this.bmnet.node.network)
+  this.addr = BMutils.getBTCAddr(this.privKey, this.bmnet.bms.node.network)
 
   /* Subscribe to BM events */
-  var bus = bmnet.bus
+  var bus = bmnet.bms.bus
   var self = this
   bus.on('bmservice/newmessage', function(message){
     if(message.dst == self.id){
@@ -69,27 +69,46 @@ BMNode.prototype.getAddr = function(){
 }
 
 /* Get node status */
-//TODO
+BMNode.prototype.getStatus = function(callback){
+  var insight = this.bmnet.bms.insight
+  var self = this
+
+  insight.getUnspentUtxos(this.addr, function(err, utxos){
+    if(err) throw "[insight.getUnspentUtxos] "+err;
+
+    var status = {
+      "ID": self.id,
+      "Address": self.addr,
+      "UTXOs": utxos
+      //TODO: messages
+    }
+    callback(null, status)
+  });
+}
 
 /* */
-BMNode.prototype.sendMessage = function (source, dest, message){
+BMNode.prototype.sendMessage = function(source, dest, message){
   var self = this
-  msg = message //+ payload
+  msg = message
 
-  //this.bitcoinnode.
-  this.bmnet.node.services.bmservice.sendMessage(source, dest, msg, function(){
-  self.log(self.id, "Message "+message+" Sent")
+  this.bmnet.bms.sendMessage(source, dest, msg, function(){
+  if(DBG) self.log(self.id, "Message "+message+" sent")
   })
 }
 
+/* Sign a transaction */
+BMNode.prototype.signTransaction = function(tx){
+  tx.sign(this.privKey)
+}
+
 /* Handle a received message */
-BMNode.prototype.handleMessage = function (message){ //node, sender,
-  //message construction: buildDataOut(hexString, 'hex');
+BMNode.prototype.handleMessage = function (message){
+  if(DBG) this.log('New message from \''+sender+'\': '+msg);
   node = this.id
   msg = message.msg
   sender = message.src
 
-  this.log('Message \''+msg+'\' received'+' from '+sender);
+  /* Interpret commands in the message */
   cmd = msg.substring(0,3)
   switch (cmd) {
     case 'ack':
@@ -97,34 +116,14 @@ BMNode.prototype.handleMessage = function (message){ //node, sender,
     case 'png':
       this.sendMessage(node, sender, 'ack')
       break;
-    case 'chn': //WARN: experimental command
-      switch (node) {
-        case 'N1':
-          this.sendMessage(node, "N2", 'chn')
-          break;
-        case 'N2':
-          this.sendMessage(node, "N3", 'chn')
-          break;
-        case 'N3':
-          this.log(node,"Loop closed");
-          break;
-        default:
-          this.log(node,'Something is wrong...');
-      }
-      break;
     default:
       this.log(node, 'Unknown Command '+cmd);
   }
 };
 
-/* Sign a transaction */
-BMNode.prototype.signTransaction = function(tx){
-  tx.sign(this.privKey)
-}
-
 module.exports = BMNode;
 
 /* Retrieve messages for Node Nx*/
-function receiveMessage (node, sender, msg){
+function receiveMessage(node, sender, msg){
   //bms.getMessages()
 };

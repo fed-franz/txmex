@@ -21,6 +21,28 @@ function prefixLog(prefix, msg){
   return console.log('['+prefix+'] '+msg);
 }
 
+/* Split message 'str' in chunks of 'size' letters */
+function chunkMessage(str, size) {
+  var numChunks = Math.ceil(str.length / size),
+      chunks = new Array(numChunks);
+
+  for(var i = 0, o = 0; i < numChunks; ++i, o += size) {
+    chunks[i] = str.substr(o, size);
+  }
+
+  return chunks;
+}
+
+/* Put chunks together */ //TODO: mv to BMutils as a general function
+function assembleChunks(chunks){
+  var str = ""
+  for(i=0;i<chunks.length;i++){
+      str += chunks[i]
+  }
+
+  return str
+}
+
 /* Convert hex string to ASCII */
 function hexToAscii (str1){
   var hex  = str1.toString();
