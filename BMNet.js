@@ -66,7 +66,6 @@ BMNet.prototype.generateID = function(base){
 
 /* Adds a BMNode to this network */
 BMNet.prototype.addBMNode = function(nodeData, mode){
-  if(DBG) this.log("Adding node...")
   var id = nodeData.id //TODO: use AUTO and TMP modes
   if(id == 'auto') nodeData.id = id = this.generateID()
   if(id == 'temp'){
@@ -78,6 +77,12 @@ BMNet.prototype.addBMNode = function(nodeData, mode){
   return id
 }
 
+/* Return true if the address corresponds to a node in this network */
+BMNet.prototype.isBMNode = function(addr){
+  if(this.getNodeID(addr)) return true
+  return false
+}
+
 /* Returns the node object */
 BMNet.prototype.getNode = function(id){
   if(this.bmnodes[id]) return this.bmnodes[id];
@@ -87,9 +92,9 @@ BMNet.prototype.getNode = function(id){
 /* Return the node ID for a specific BTC address */
 BMNet.prototype.getNodeID = function(addr) {
   var nodes = this.bmnodes
-  var node = Object.keys(nodes).find(id => nodes[id].getAddr() === addr);
-  if(!node) return null
-  return node.id
+  for(var id in this.bmnodes)
+    if(this.bmnodes[id].getAddr() == addr) return id
+  return null
 };
 
 /* Return the BTC address of a node */
@@ -98,7 +103,7 @@ BMNet.prototype.getNodeAddress = function(id) {
     return this.bmnodes[id].getAddr()
   else if(bitcore.Address.isValid(id, this.node.network))
     return id
-  else throw "[BMNet] Invalid Node ID or Address"
+  else return null
 };
 
 //TODO: mv to BMNode
@@ -113,6 +118,7 @@ function getNodeStatus(name){
   var nodeData = loadBMNode(name)
   this.log("Node Data:"+JSON.stringify(nodeData,null,2));
 
+  //this.bmnet.node.services.bmservice.insight
   insight.getUnspentUtxos(nodeData.tstAddr, function(err, utxos){
     if(err) return console.log("ERR (getUnspentUtxos): "+err);
 

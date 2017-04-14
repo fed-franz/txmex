@@ -237,7 +237,7 @@ BitMExService.prototype.sendMessage = function(src, dst, message, callback){
 }
 
 /*__________ RECEIVER FUNCTIONS __________*/
-/* Put chunks together */
+/* Put chunks together */ //TODO: mv to BMutils as a general function
 function assembleMessage(msgArray){
   var fullmsg = ""
   for(i=0;i<msgArray.length;i++){
@@ -248,9 +248,10 @@ function assembleMessage(msgArray){
 }
 
 /* Emits 'newmessage' event notifications to BM Nodes */
-//TODO: replace with this.bmnet.getNode().receiveMessage(msg)
+//TODO: replace with this.bmnet.getNode().receiveMessage(msg) ?
 BitMExService.prototype.deliverMessage = function(src, dst, msg){
-  var srcNode = this.bmnet.getNodeID(src.toString()) // bmnodes[src.toString()].name
+  var srcNode = this.bmnet.getNodeID(src.toString())
+  if(!srcNode) srcNode = dst.toString()
   var dstNode = this.bmnet.getNodeID(dst.toString())
   var params = {src:srcNode, dst:dstNode, msg:msg}
 
@@ -274,11 +275,12 @@ BitMExService.prototype.collectMessage = function (src, dst, data){
 
   /* If a message is complete, deliver it */
   if(Object.keys(msgDB[src+dst]).length == msglen){
-    fullmsg = assembleMessage(msgDB[src+dst])
+    var fullmsg = assembleMessage(msgDB[src+dst])
     if(this.bmnet.getNodeID(dst.toString())){
       this.deliverMessage(src, dst, fullmsg)
       msgDB[src+dst] = []
     }
+    else throw "ERR: destination "+dst.toString()+"is unreachable"
   }
 }
 
@@ -315,7 +317,10 @@ BitMExService.prototype.transactionHandler = function(txBuffer) {
       var msgsplit = tx.outputs[1].script.toString().split(" ")
       var data = hexToAscii(msgsplit[msgsplit.length-1])
 
-      this.collectMessage(srcAddr, dstAddr, data)
+      if(this.bmnet.isBMNode(dstAddr))
+      try{
+        this.collectMessage(srcAddr, dstAddr, data)
+      } catch(e){ this.log(e) }
     }//if
   }//if
 }//transactionHandler()

@@ -14,14 +14,13 @@ function BMNode(bmnet, nodeData, mode){
   this.bmnet = bmnet
   this.id = nodeData.id
   this.privKey = (nodeData.privKey ? nodeData.privKey : BMutils.createBTCKey())
+  this.addr = BMutils.getBTCAddr(this.privKey, this.bmnet.node.network)
 
   /* Subscribe to BM events */
-  if(DBG) this.log("Subscribing events")
   var bus = bmnet.bus
   var self = this
   bus.on('bmservice/newmessage', function(message){
     if(message.dst == self.id){
-      // self.log('(Address: '+self.getAddr()+')');
       self.handleMessage(message)
     }
   })
@@ -66,8 +65,11 @@ BMNode.prototype.log = function(msg){
 
 /* Returns the BTC address */
 BMNode.prototype.getAddr = function(){
-  return BMutils.getBTCAddr(this.privKey, this.bmnet.node.network)
+  return this.addr
 }
+
+/* Get node status */
+//TODO
 
 /* */
 BMNode.prototype.sendMessage = function (source, dest, message){
@@ -76,9 +78,7 @@ BMNode.prototype.sendMessage = function (source, dest, message){
 
   //this.bitcoinnode.
   this.bmnet.node.services.bmservice.sendMessage(source, dest, msg, function(){
-  //TRY this.node.services.bmservice.sendMessage(source, dest, msg, function(){
-    // console.log('message '+msg+' sent');
-    self.log(self.id, "Message Sent")
+  self.log(self.id, "Message "+message+" Sent")
   })
 }
 
@@ -89,8 +89,8 @@ BMNode.prototype.handleMessage = function (message){ //node, sender,
   msg = message.msg
   sender = message.src
 
+  this.log('Message \''+msg+'\' received'+' from '+sender);
   cmd = msg.substring(0,3)
-  this.log(node, 'Message \''+cmd+'\' received'+' from '+sender);
   switch (cmd) {
     case 'ack':
       break;
