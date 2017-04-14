@@ -6,7 +6,6 @@ module.exports = {
   log: prefixLog,
   isNum: isNum,
   hexToAscii: hexToAscii,
-  getKeyByValue: getKeyByValue,
   createBTCKey: createBTCKey,
   getBTCAddr: getBTCAddr,
 };
@@ -44,11 +43,6 @@ function randHex(length) {
 /* Check if 'num' is a number */
 function isNum(num){
     return !isNaN(num)
-}
-
-/* Return the key of a value in a dictionary */
-function getKeyByValue(object, value) {
-  return Object.keys(object).find(key => object[key] === value);
 }
 
 /*__________ BITCOIN __________*/
