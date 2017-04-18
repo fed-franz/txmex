@@ -142,13 +142,13 @@ BitMExService.prototype.createNode = function(id, callback){
 /* [API] Deletes a node */
 BitMExService.prototype.removeNode = function(id, callback){
   if(!id || !this.bmnet.isBMNodeID(id)) callback("ERR: Invalid ID")
-  if(DBG) this.log("Deleting node "+id)
+  if(DBG) this.log("Removing node "+id)
 
   try {
     this.bmnet.removeBMNode(id)
   } catch (e){ return callback(e) }
 
-  return callback(null, "Node "+id+" deleted")
+  return callback(null, "Node "+id+" removed")
 }
 
 /* [API] Print the status of a node */
