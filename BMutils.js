@@ -8,6 +8,8 @@ module.exports = {
   hexToAscii: hexToAscii,
   createBTCKey: createBTCKey,
   getBTCAddr: getBTCAddr,
+  chunkMessage: chunkMessage,
+  assembleChunks: assembleChunks,
 };
 
 module.exports.DBG = true
