@@ -42,6 +42,13 @@ function BMNode(bmnet, nodeData, mode){
 
 util.inherits(BMNode, EventEmitter);
 
+/* Delete node file */
+BMNode.prototype.destroy = function(){
+  var dir = this.bmnet.dir
+
+  fs.unlinkSync(dir+'/'+this.id+'.dat');
+}
+
 /* Save BMNode to file */
 BMNode.prototype.saveData = function(){
   if(DBG) this.log("Saving data...")
