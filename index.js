@@ -129,8 +129,8 @@ BitMExService.prototype.addNode = function(id, privKey, callback){
 
 /* [API] Creates a new node */
 BitMExService.prototype.createNode = function(id, callback){
+  if(!id) callback("ERR: Missing ID")
   if(DBG) this.log("Creating new node")
-  if(!id) throw "ERR (addnode): Missing ID"
 
   try {
     var nodeID = this.bmnet.addBMNode({id}, MODE.NEW)
@@ -139,7 +139,17 @@ BitMExService.prototype.createNode = function(id, callback){
   return callback(null, "Node "+nodeID+" created")
 }
 
-/* [API] Deletes a node */ //TODO
+/* [API] Deletes a node */
+BitMExService.prototype.removeNode = function(id, callback){
+  if(!id || !this.bmnet.isBMNodeID(id)) callback("ERR: Invalid ID")
+  if(DBG) this.log("Deleting node "+id)
+
+  try {
+    this.bmnet.removeBMNode(id)
+  } catch (e){ return callback(e) }
+
+  return callback(null, "Node "+id+" deleted")
+}
 
 /* [API] Print the status of a node */
 BitMExService.prototype.getNodeStatus = function(id, callback){
@@ -157,10 +167,10 @@ BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
 
   try {
     var srcAddr = this.bmnet.isBMNodeID(src) ? this.bmnet.getNodeAddress(src) : src
-    if(!this.isBTCAddr(srcAddr)) return callback(null, "ERR: invalid source address")
+    if(!this.isBTCAddr(srcAddr)) return callback("ERR: invalid source address")
 
     var dstAddr = this.bmnet.isBMNodeID(dst) ? this.bmnet.getNodeAddress(dst) : dst
-    if(!this.isBTCAddr(dstAddr)) return callback(null, "ERR: invalid source address")
+    if(!this.isBTCAddr(dstAddr)) return callback("ERR: invalid source address")
   } catch (e){ return callback(e) }
 
   /* Split message in chunks */
@@ -174,10 +184,10 @@ BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
       if(err) return callback("[insight.getUnspentUtxos]: "+err);
       if(utxos.length == 0){
         if(self.node.network == BTC)
-          return callback("[BM] ERR: Not enough Satoshis to make transaction");
+          return callback("ERR: Not enough Satoshis to make transaction");
         else{
           //TODO: get new coins from faucet AND RETRY
-          return callback("[BM] ERR: Not enough Satoshis to make transaction");
+          return callback("ERR: Not enough Satoshis to make transaction");
         }
       }
 
@@ -356,7 +366,7 @@ BitMExService.prototype.getAPIMethods = function(){
     ['tryapi', this, this.tryapi, 1],
     ['addnode', this, this.addNode, 2],
     ['createnode', this, this.createNode, 1],
-    ['removenode', this, this.createNode, 1],
+    ['removenode', this, this.removeNode, 1],
     ['sendmessage', this, this.sendMessage, 3],
     ['getmessages', this, this.getMessages, 2],
     ['getnodestatus', this, this.getNodeStatus, 1],

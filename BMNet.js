@@ -41,6 +41,7 @@ BMNet.prototype.loadBMNet = function(){
   var files = fs.readdirSync(netDir)
   var self = this
   files.forEach(function(file){
+    //TODO: if *.dat
     var fileData = fs.readFileSync(netDir+'/'+file);
     try {
         var nodeData = JSON.parse(fileData)
@@ -79,6 +80,16 @@ BMNet.prototype.addBMNode = function(nodeData, mode){
   return id
 }
 
+/* Remove a BMNode of this network */
+//TODO: opt MODE.KEEP (keep file)
+BMNet.prototype.removeBMNode = function(id){
+  if(!this.isBMNodeID(id)) throw "ERR: Invalid ID"
+
+  delete this.bmnodes.id
+  this.getNode(id).destroy()
+}
+
+/* Returns true if 'node' corresponds to a node (ID/address) in this network */
 BMNet.prototype.isBMNode = function(node){
   if(this.getNodeAddress(node) || this.isBMNodeID(node)) return true
   return false
