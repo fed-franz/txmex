@@ -28,9 +28,9 @@ function BMNode(bmnet, nodeData, mode){
   //TODO: set per-network broadcast address
   if(this.id != 'broadcast'){
     bus.on('bmservice/broadcast', function(msg){
-      self.log(self.id,'Received broadcast message: '+msg);
+      self.log('Received broadcast message: '+msg);
       /* Send ACK message to the sender */ //TODO: set optionally
-      self.sendMessage(self.id,'broadcast','ack')
+      self.sendMessage('broadcast','ack')
     })
   }
 
@@ -86,13 +86,13 @@ BMNode.prototype.getStatus = function(callback){
   });
 }
 
-/* */
-BMNode.prototype.sendMessage = function(source, dest, message){
-  var self = this
-  msg = message
+/* TODO: currently not used */
+BMNode.prototype.sendMessage = function(dst, msg){
+  var src = this.id
 
-  this.bmnet.bms.sendMessage(source, dest, msg, function(){
-  if(DBG) self.log(self.id, "Message "+message+" sent")
+  var self = this
+  this.bmnet.bms.sendMessage(src, dst, msg, function(){
+    if(DBG) self.log("Message "+msg+" sent")
   })
 }
 
@@ -103,10 +103,9 @@ BMNode.prototype.signTransaction = function(tx){
 
 /* Handle a received message */
 BMNode.prototype.handleMessage = function (message){
-  if(DBG) this.log('New message from \''+sender+'\': '+msg);
-  node = this.id
-  msg = message.msg
-  sender = message.src
+  msg = message.data
+  src = message.src
+  if(DBG) this.log('Message from \''+src+'\': '+msg);
 
   /* Interpret commands in the message */
   cmd = msg.substring(0,3)
@@ -114,10 +113,10 @@ BMNode.prototype.handleMessage = function (message){
     case 'ack':
       break;
     case 'png':
-      this.sendMessage(node, sender, 'ack')
+      this.sendMessage(src, 'ack')
       break;
     default:
-      this.log(node, 'Unknown Command '+cmd);
+      this.log('Unknown Command '+cmd);
   }
 };
 

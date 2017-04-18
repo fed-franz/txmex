@@ -68,7 +68,7 @@ BMNet.prototype.generateID = function(base){
 
 /* Adds a BMNode to this network */
 BMNet.prototype.addBMNode = function(nodeData, mode){
-  var id = nodeData.id //TODO: use AUTO and TMP modes
+  var id = nodeData.id
   if(id == 'auto') nodeData.id = id = this.generateID()
   if(id == 'temp'){
     nodeData.id = id = this.generateID('TMP')
@@ -79,8 +79,19 @@ BMNet.prototype.addBMNode = function(nodeData, mode){
   return id
 }
 
-/* Return true if the address corresponds to a node in this network */
-BMNet.prototype.isBMNode = function(addr){
+BMNet.prototype.isBMNode = function(node){
+  if(this.getNodeAddress(node) || this.isBMNodeID(node)) return true
+  return false
+}
+
+/* Returns true if the ID corresponds to a node in this network */
+BMNet.prototype.isBMNodeID = function(id){
+  if(this.getNodeAddress(id)) return true
+  return false
+}
+
+/* Returns true if the address corresponds to a node in this network */
+BMNet.prototype.isBMNodeAddr = function(addr){
   if(this.getNodeID(addr)) return true
   return false
 }
