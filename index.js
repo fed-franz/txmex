@@ -308,10 +308,10 @@ BitMExService.prototype.isBMTransaction = function(tx){
 /* Handles received transactions */
 BitMExService.prototype.transactionHandler = function(txBuffer) {
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
-  if(DBG) this.log("New TX: "+tx.id)
+  // if(DBG) this.log("New TX: "+tx.id)
   if(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script){
     if(this.isBMTransaction(tx)){
-      if(DBG) this.log('New BM transaction. tx: '+tx.id);
+      if(DBG) this.log("New BM transaction ["+tx.id+"]");
       var srcAddr = tx.inputs[0].script.toAddress(this.node.network);
       var dstAddr = tx.outputs[0].script.toAddress(this.node.network);
 
