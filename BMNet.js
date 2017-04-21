@@ -89,24 +89,6 @@ BMNet.prototype.removeBMNode = function(id){
   this.getNode(id).destroy()
 }
 
-/* Returns true if 'node' corresponds to a node (ID/address) in this network */
-BMNet.prototype.isBMNode = function(node){
-  if(this.getNodeAddress(node) || this.isBMNodeID(node)) return true
-  return false
-}
-
-/* Returns true if the ID corresponds to a node in this network */
-BMNet.prototype.isBMNodeID = function(id){
-  if(this.getNodeAddress(id)) return true
-  return false
-}
-
-/* Returns true if the address corresponds to a node in this network */
-BMNet.prototype.isBMNodeAddr = function(addr){
-  if(this.getNodeID(addr)) return true
-  return false
-}
-
 /* Returns the node object */
 BMNet.prototype.getNode = function(id){
   if(this.bmnodes[id]) return this.bmnodes[id];
@@ -114,27 +96,36 @@ BMNet.prototype.getNode = function(id){
 }
 
 /* Return the node ID for a specific BTC address */
-BMNet.prototype.getNodeID = function(addr) {
-  var nodes = this.bmnodes
+BMNet.prototype.getNodeID = function(addr){
   for(var id in this.bmnodes)
     if(this.bmnodes[id].getAddr() == addr) return id
   return null
 };
 
 /* Return the BTC address of a node */
-BMNet.prototype.getNodeAddress = function(id) {
+BMNet.prototype.getNodeAddress = function(id){
+  if(this.isBMNodeAddr(id)) return id
   if(this.bmnodes[id])
     return this.bmnodes[id].getAddr()
-  else if(bitcore.Address.isValid(id, this.bms.node.network))
-    return id
-  else return null
+  return null
 };
 
-//TODO: mv to BMNode
-/*****************************************************************************/
-function loadBMNode(){;} //Reads node file
-function updateBMNode(name, newData){
-  var nodeData = loadBMNode(name);
+/* Returns true if 'node' corresponds to a node (ID/address) in this network */
+BMNet.prototype.isBMNode = function(node){
+  if(this.isBMNodeAddr(node) || this.isBMNodeID(node)) return true
+  return false
+}
+
+/* Returns true if the ID corresponds to a node in this network */
+BMNet.prototype.isBMNodeID = function(id){
+  if(this.getNode(id)) return true
+  return false
+}
+
+/* Returns true if the address corresponds to a node in this network */
+BMNet.prototype.isBMNodeAddr = function(addr){
+  if(this.getNodeID(addr)) return true
+  return false
 }
 
 /*****************************************************************************/

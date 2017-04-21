@@ -7,7 +7,6 @@ var explorers = require('bitcore-explorers');
 // var Service = require('bitcore-node').Service;
 const TX_PREFIX = "BM"
 
-const BMNode = require('./BMNode');
 const BMNet = require('./BMNet');
 const BMutils = require('./BMutils');
 const BTC = BMutils.BTC
@@ -103,7 +102,7 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
 };
 
 /* __________ BM NETWORK FUNCTIONS  __________ */
-BitMExService.prototype.isBTCAddr = function(addr){
+BitMExService.prototype.isValidAddr = function(addr){
   return bitcore.Address.isValid(addr, this.node.network)
 }
 
@@ -160,18 +159,34 @@ BitMExService.prototype.getNodeStatus = function(id, callback){
   } catch (e) { return callback(e) }
 }
 
+/* [API] Print the status of a node */
+BitMExService.prototype.getNodeMessages = function(id, callback){
+  var nodeAddr = this.bmnet.getNodeAddress(id)
+
+  try{
+    var txs = this.node.getAddressHistory(nodeAddr, null, function(err, txs){
+      if(err) return callback(null, e)
+
+      return callback(null, JSON.stringify(txs,null,2))
+    })
+  }
+  catch(e){return callback(null, e)}
+}
+
 /*__________ SENDER FUNCTIONS __________*/
 /* [API] Send a message */
 BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
   if(DBG) this.log("sending \'"+msg+"\' from "+src+" to "+dst);
 
-  try {
-    var srcAddr = this.bmnet.isBMNodeID(src) ? this.bmnet.getNodeAddress(src) : src
-    if(!this.isBTCAddr(srcAddr)) return callback("ERR: invalid source address")
+  /* Check src and dst */
+  var srcAddr = this.bmnet.getNodeAddress(src)
+  if(!srcAddr) return callback(null, "ERR: invalid source")
+  var dstAddr = this.bmnet.getNodeAddress(dst)
+  if(!dstAddr)
+    if(this.isValidAddr(dst))
+      dstAddr = dst
+    else return callback(null, "ERR: invalid destination")
 
-    var dstAddr = this.bmnet.isBMNodeID(dst) ? this.bmnet.getNodeAddress(dst) : dst
-    if(!this.isBTCAddr(dstAddr)) return callback("ERR: invalid source address")
-  } catch (e){ return callback(e) }
 
   /* Split message in chunks */
   var chunks = BMutils.chunkMessage(msg, MAX_PAYLOAD_SIZE)
@@ -191,7 +206,7 @@ BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
         }
       }
 
-      /* Set prefix */
+      /* Set the prefix */
       seqcode = seq.toString(16)
       len = chunks.length.toString(16)
       var prefix = TX_PREFIX + len + seqcode
@@ -337,7 +352,7 @@ BitMExService.prototype.waitMessage = function(net, callback){
 BitMExService.prototype.waitMessageFrom = function(src, callback){
   var srcAddr = this.bmnet.isBMNodeID(src) ? this.bmnet.getNodeAddress(src) : src
 
-  if(this.isBTCAddr(srcAddr)){
+  if(this.isValidAddr(srcAddr)){
     var self=this
     this.bus.on('bmservice/newmessage', function(msg){
       if(msg.src == srcAddr || msg.src == self.bmnet.getNodeID(srcAddr))
@@ -368,7 +383,7 @@ BitMExService.prototype.getAPIMethods = function(){
     ['createnode', this, this.createNode, 1],
     ['removenode', this, this.removeNode, 1],
     ['sendmessage', this, this.sendMessage, 3],
-    ['getmessages', this, this.getMessages, 2],
+    ['getmessages', this, this.getNodeMessages, 1],
     ['getnodestatus', this, this.getNodeStatus, 1],
     ['waitmessage', this, this.waitMessage, 1],
     ['waitmessagefrom', this, this.waitMessageFrom, 1],
