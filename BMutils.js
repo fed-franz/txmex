@@ -71,13 +71,13 @@ function isNum(num){
 
 /*__________ BITCOIN __________*/
 
+/* Create new Bitcoin address */
+function createBTCKey(){
+  return new bitcore.PrivateKey().toWIF();
+}
+
 /* Returns the address for the key */
 function getBTCAddr(privKey, BTCnet){
   var pk = new bitcore.PrivateKey(privKey)
   return pk.toAddress(BTCnet).toString()
-}
-
-/* Create new Bitcoin address */
-function createBTCKey(){
-  return new bitcore.PrivateKey().toWIF();
 }
