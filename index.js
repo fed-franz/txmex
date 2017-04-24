@@ -175,6 +175,7 @@ BitMExService.prototype.getNodeMessages = function(id, callback){
 
         var tx = bitcore.Transaction().fromObject(txs[i].tx);
         var srcAddr = tx.inputs[0].script.toAddress(self.node.network);
+        var dstAddr = tx.outputs[0].script.toAddress(self.node.network);
 
         var txMsg = BM.getMessage(tx)
         if(txMsg){
@@ -196,7 +197,8 @@ BitMExService.prototype.getNodeMessages = function(id, callback){
             }
 
             var src = self.bmnet.isBMNodeAddr(srcAddr) ? self.bmnet.getNodeID(srcAddr) : srcAddr
-            msgs.push({'txs':msgtxs, 'src':src, 'data':msg}); //TODO: add timestamp/height
+            var dst = self.bmnet.isBMNodeAddr(dstAddr) ? self.bmnet.getNodeID(dstAddr) : dstAddr
+            msgs.push({'txs':msgtxs, 'src':src, 'dst':dst, 'data':msg}); //TODO: add timestamp/height
 
             delete chnkBuf[srcAddr]
           }//if(complete)
