@@ -20,22 +20,21 @@ var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
 /***** Constructor *****/
 function BMNet (bms, name, dir){
-  if(name){
-    this.name = name
-    this.bms = bms
-    this.bmnodes = {}
-    this.dir = dir
+  if(!bms) throw "Missing BMService instance"
+  if(!name) throw "Missing name"
 
-    this.loadBMNet()
-  }
-  else{ //TODO: create new network
-    throw "No name provided"
-  }
+  this.bms = bms
+  this.name = name
+  this.bmnodes = {}
+  this.dir = dir
+
+  this.loadBMNet()
+  if(this.bmnodes.length == 0) throw "Empty network"
 }
 
 /* Load nodes data frome file */
 BMNet.prototype.loadBMNet = function(){
-  if(DBG) this.log("Loading nodes...")
+if(DBG) this.log("Loading nodes...")
   var netDir = this.dir
   //TODO: if(this.dir) does not exist...
   var files = fs.readdirSync(netDir)
@@ -46,10 +45,22 @@ BMNet.prototype.loadBMNet = function(){
     try {
         var nodeData = JSON.parse(fileData)
         self.addBMNode(nodeData)
-    } catch(e) {
-        return this.log("ERR: Failed to parse file "+file+". RET:"+e);
-    }
+    } catch(e) { self.log("ERR: Failed to parse file "+file+". RET:"+e); }
   })
+}
+
+/* Returns the BMNet status */
+BMNet.prototype.getStatus = function(){
+  var status = {}
+  status.name = this.name
+
+  var nodes = []
+  for(var id in this.bmnodes)
+    nodes.push({id:id, address: this.bmnodes[id].addr})
+
+  status.nodes = nodes
+
+  return status
 }
 
 /* Creates a new dynamic node ID */
@@ -69,15 +80,12 @@ BMNet.prototype.generateID = function(base){
 
 /* Adds a BMNode to this network */
 BMNet.prototype.addBMNode = function(nodeData, mode){
-  var id = nodeData.id
-  if(id == 'auto') nodeData.id = id = this.generateID()
-  if(id == 'temp'){
-    nodeData.id = id = this.generateID('TMP')
-    mode = MODE.TMP
-  }
+  if(!nodeData.id) nodeData.id = this.generateID()
+  if(mode == MODE.TMP)
+    nodeData.id = this.generateID('TMP')
 
-  this.bmnodes[id] = new BMNode(this, nodeData, mode)
-  return id
+  this.bmnodes[nodeData.id] = new BMNode(this, nodeData, mode)
+  return nodeData.id
 }
 
 /* Remove a BMNode of this network */
@@ -91,12 +99,14 @@ BMNet.prototype.removeBMNode = function(id){
 
 /* Returns the node object */
 BMNet.prototype.getNode = function(id){
+  if(!id) throw "ERR: ID is required"
   if(this.bmnodes[id]) return this.bmnodes[id];
   else return null
 }
 
 /* Return the node ID for a specific BTC address */
 BMNet.prototype.getNodeID = function(addr){
+  if(!addr) throw "ERR: addr is required"
   for(var id in this.bmnodes)
     if(this.bmnodes[id].getAddr() == addr) return id
   return null
@@ -104,6 +114,7 @@ BMNet.prototype.getNodeID = function(addr){
 
 /* Return the BTC address of a node */
 BMNet.prototype.getNodeAddress = function(id){
+  if(!id) throw "ERR: ID is required"
   if(this.isBMNodeAddr(id)) return id
   if(this.bmnodes[id])
     return this.bmnodes[id].getAddr()
@@ -127,6 +138,14 @@ BMNet.prototype.isBMNodeAddr = function(addr){
   if(this.getNodeID(addr)) return true
   return false
 }
+
+// /* Return the current status of a node */
+// BMNet.prototype.getNodeStatus = function(id, callback){
+//   if(!id) throw "ERR: ID is required"
+//   var bmnode = this.getNode(id)
+//   if(!bmnode) return callback("Node ID is not valid")
+//   return node.getStatus(callback)
+// }
 
 /*****************************************************************************/
 

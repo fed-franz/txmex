@@ -34,7 +34,7 @@ function BMNode(bmnet, nodeData, mode){
     })
   }
 
-  if(mode == MODE.NEW && mode != MODE.TMP)
+  if(mode == MODE.NEW)
     this.saveData()
 
   if(DBG) this.log("Hello World!")
@@ -75,23 +75,23 @@ BMNode.prototype.getAddr = function(){
   return this.addr
 }
 
-/* Get node status */
-BMNode.prototype.getStatus = function(callback){
-  var insight = this.bmnet.bms.insight
-  var self = this
-
-  insight.getUnspentUtxos(this.addr, function(err, utxos){
-    if(err) throw "[insight.getUnspentUtxos] "+err;
-
-    var status = {
-      "ID": self.id,
-      "Address": self.addr,
-      "UTXOs": utxos
-      //TODO: messages
-    }
-    callback(null, status)
-  });
-}
+// /* Get node status */
+// BMNode.prototype.getStatus = function(callback){
+//   var insight = this.bmnet.bms.insight
+//   var self = this
+//
+//   insight.getUnspentUtxos(this.addr, function(err, utxos){
+//     if(err) throw "[insight.getUnspentUtxos] "+err;
+//
+//     var status = {
+//       "ID": self.id,
+//       "Address": self.addr,
+//       "UTXOs": utxos
+//       //TODO: messages
+//     }
+//     callback(null, status)
+//   });
+// }
 
 /* TODO: currently not used */
 BMNode.prototype.sendMessage = function(dst, msg){
@@ -106,6 +106,11 @@ BMNode.prototype.sendMessage = function(dst, msg){
 /* Sign a transaction */
 BMNode.prototype.signTransaction = function(tx){
   tx.sign(this.privKey)
+}
+
+/* Sign a transaction */
+BMNode.prototype.getPrivKey = function(){
+  return this.privKey
 }
 
 /* Handle a received message */

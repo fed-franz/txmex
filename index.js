@@ -5,24 +5,18 @@ var bitcore = require('bitcore-lib');
 var explorers = require('bitcore-explorers');
 
 // var Service = require('bitcore-node').Service;
-const TX_PREFIX = "BM"
-const BM = require('./BitMEx')
+const BitMEx = require('./BitMEx')
 const BMNet = require('./BMNet');
 const BMutils = require('./BMutils');
 const BTC = BMutils.BTC
 const MODE = BMutils.MODE
 const DBG = BMutils.DBG
 
-const MAX_PAYLOAD_SIZE = 76
-const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
-
 /* Set Data directory */
 var dataDir = __dirname+'/data'
 if(!fs.existsSync(dataDir)){
   fs.mkdirSync(dataDir);
 }
-
-const hexToAscii = BMutils.hexToAscii
 
 /* BM Service Class */
 /********************************************************************/
@@ -57,10 +51,11 @@ BitMExService.prototype.start = function(callback) {
   this.bus.subscribe('bmservice/broadcast');
 
   try {
-    //this.bm = new BM(this)
-    this.loadNet("tstBMnet") //TODO: make net name dynamic for multi net
+    //TODO: for each net
+    this.bm = new BitMEx(this, {name: 'tstBMnet', dir: dataDir})
   } catch (e) {
-    return this.log("ERR: Failed to start. RET:"+e);
+    this.log("ERR: Failed to start: "+e);
+    return callback(e)
   }
 
   this.emit('ready'); //TODO: necessary?
@@ -102,38 +97,44 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
   }
 };
 
-/* __________ BM NETWORK FUNCTIONS  __________ */
-BitMExService.prototype.isValidAddr = function(addr){
-  return bitcore.Address.isValid(addr, this.node.network)
-}
-
-/* Loads an existing network of nodes from file */
-BitMExService.prototype.loadNet = function(name){
+/* Handles received transactions */
+BitMExService.prototype.transactionHandler = function(txBuffer) {
+  var tx = bitcore.Transaction().fromBuffer(txBuffer);
+// if(DBG) this.log("New TX: "+tx.id)
   try{
-    this.bmnet = new BMNet(this, name, dataDir)
-  }catch(e){this.log(e)}
+    this.bm.handleTransaction(tx)
+  } catch(e) { this.log(e) }
+}//transactionHandler()
+
+/* __________ API FUNCTIONS (NET) __________ */
+
+/* [API] Prints the BMNet status */
+BitMExService.prototype.getNetStatus = function(callback){
+  callback(null, this.bm.bmnet.getStatus())
 }
 
 /* [API] Adds a new node to a BM network. Requires PrivateKey */
 BitMExService.prototype.addNode = function(id, privKey, callback){
-  if(!id) callback("ERR (addnode): Missing ID")
+  if(!id || !privKey) callback(null, "Syntax: addnode {ID, \'auto\',\'temp\'} privkey")
 
+  var mode = MODE.NEW
+  if(id == 'auto') id = ''
+  if(id == 'temp') mode = MODE.TMP
   try {
-    this.bmnet.addBMNode({id, privKey}, MODE.NEW)
+    this.bm.bmnet.addBMNode({id, privKey}, mode)
   } catch (e) {
-    return callback(e)
+    return callback(null, e)
   }
 
-  return callback(null, "Node added")
+  return callback(null, "Node "+id+" added")
 }
 
 /* [API] Creates a new node */
 BitMExService.prototype.createNode = function(id, callback){
-  if(!id) callback("ERR: Missing ID")
-  if(DBG) this.log("Creating new node")
+  if(!id) callback(null, "ERR: Missing ID")
 
   try {
-    var nodeID = this.bmnet.addBMNode({id}, MODE.NEW)
+    var nodeID = this.bm.bmnet.addBMNode({id}, MODE.NEW)
   } catch (e){ return callback(e) }
 
   return callback(null, "Node "+nodeID+" created")
@@ -141,228 +142,51 @@ BitMExService.prototype.createNode = function(id, callback){
 
 /* [API] Deletes a node */
 BitMExService.prototype.removeNode = function(id, callback){
-  if(!id || !this.bmnet.isBMNodeID(id)) callback("ERR: Invalid ID")
-  if(DBG) this.log("Removing node "+id)
+  if(!id) return callback(null, "Syntax: removenode ID")
+  // if(DBG) this.log("Removing node "+id)
 
   try {
-    this.bmnet.removeBMNode(id)
-  } catch (e){ return callback(e) }
+    this.bm.bmnet.removeBMNode(id)
+  } catch (e){ return callback(null, "ERR:"+e) }
 
   return callback(null, "Node "+id+" removed")
 }
 
 /* [API] Print the status of a node */
 BitMExService.prototype.getNodeStatus = function(id, callback){
+  if(!id) callback(null, "ERR: Missing ID")
+
   try {
-    var node = this.bmnet.getNode(id)
-    if(!node) return callback(null, "Wrong node ID")
-    return node.getStatus(callback)
-  } catch (e) { return callback(e) }
+    this.bm.getNodeStatus(id, function(err, res){
+      if(err) return callback(null, err)
+      return callback(null, res)
+    })
+  } catch (e) { return callback(null, e) }
 }
+
+/* __________ API FUNCTIONS (MESSAGES) __________ */
 
 /* [API] Print the status of a node */
 BitMExService.prototype.getNodeMessages = function(id, callback){
-  var nodeAddr = this.bmnet.getNodeAddress(id)
+  if(!id) callback(null, "ERR: Missing ID")
 
-  var msgs = []
   try{
-    self = this
-    this.node.getAddressHistory(nodeAddr, {queryMempool: true}, function(err, res){
-      if(err) return callback(null, e)
-      var txs = res.items
-
-      var chnkBuf = {}
-      for(var i=0; i<txs.length; i++){
-
-        var tx = bitcore.Transaction().fromObject(txs[i].tx);
-        var srcAddr = tx.inputs[0].script.toAddress(self.node.network);
-        var dstAddr = tx.outputs[0].script.toAddress(self.node.network);
-
-        var txMsg = BM.getMessage(tx)
-        if(txMsg){
-          if(!chnkBuf[srcAddr]) chnkBuf[srcAddr] = new Array(txMsg.len)
-
-          chnkBuf[srcAddr][txMsg.seq] = {msg:txMsg.msg, txid:tx.hash}
-          /*Check if we have all chunks*/
-          var complete = true
-          for(var j=0; j<txMsg.len; j++)
-            if(!chnkBuf[srcAddr][j]) complete = false;
-
-          if(complete){
-            var msg = ""
-            var msgtxs = []
-            for(var j=0; j<txMsg.len; j++){
-
-              msg += chnkBuf[srcAddr][j].msg
-              msgtxs.push(chnkBuf[srcAddr][j].txid)
-            }
-
-            var src = self.bmnet.isBMNodeAddr(srcAddr) ? self.bmnet.getNodeID(srcAddr) : srcAddr
-            var dst = self.bmnet.isBMNodeAddr(dstAddr) ? self.bmnet.getNodeID(dstAddr) : dstAddr
-            msgs.push({'txs':msgtxs, 'src':src, 'dst':dst, 'data':msg}); //TODO: add timestamp/height
-
-            delete chnkBuf[srcAddr]
-          }//if(complete)
-        }//if(txMsg)
-      }
-
-      return callback(null, msgs)
+    this.bm.getNodeMessages(id, function(err, res){
+      if(err) return callback(null, err)
+      return callback(null, "Messages:"+res)
     })
-  }
-  catch(e){return callback(null, e)}
+  } catch (e) { return callback(null, e) }
 }
 
-/*__________ SENDER FUNCTIONS __________*/
 /* [API] Send a message */
 BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
-  if(DBG) this.log("sending \'"+msg+"\' from "+src+" to "+dst);
-
-  /* Check src and dst */
-  var srcAddr = this.bmnet.getNodeAddress(src)
-  if(!srcAddr) return callback(null, "ERR: invalid source")
-  var dstAddr = this.bmnet.getNodeAddress(dst)
-  if(!dstAddr)
-    if(this.isValidAddr(dst))
-      dstAddr = dst
-    else return callback(null, "ERR: invalid destination")
-
-
-  /* Split message in chunks */
-  var chunks = BMutils.chunkMessage(msg, MAX_PAYLOAD_SIZE)
-
-  /* Function to send a transaction with an embedde message chunk */
-  var self = this
-  var senttxs = []
-  var sendMsgTransaction = function(seq, cb){
-    /* Get UTXOs to fund new transaction */
-    self.insight.getUnspentUtxos(srcAddr, function(err, utxos){
-      if(err) return cb("[insight.getUnspentUtxos]: "+err);
-      if(utxos.length == 0){
-        if(self.node.network == BTC)
-          return cb("ERR: Not enough Satoshis to make transaction");
-        else{
-          //TODO: get new coins from faucet AND RETRY
-          return cb("ERR: Not enough Satoshis to make transaction");
-        }
-      }
-
-      /* Set the prefix */
-      seqcode = seq.toString(16)
-      len = chunks.length.toString(16)
-      var prefix = TX_PREFIX + len + seqcode
-
-      /* Create Transaction */
-      try {
-        var tx = new bitcore.Transaction()
-        .from(utxos)
-        .to(dstAddr, MIN_AMOUNT)
-        .change(srcAddr)
-        .addData(prefix+chunks[seq])
-      } catch (e){ return cb(e) }
-
-      /* Set estimate fee (not based on priority) -> check returned value */
-      tx.fee(tx.getFee())
-
-      /* Let the node sign the transaction */
-      try{
-        self.bmnet.getNode(src).signTransaction(tx)
-      } catch(e){ return cb(e) }
-
-      //TODO: verify serialization errors (see at the end of this file)
-
-      /* Broadcast Transaction */
-      self.insight.broadcast(tx, function(err, txid) {
-        if(err) return cb('[insight.broadcast]: '+err);
-
-        if(DBG) self.log("Chunk "+seq+" sent. [Tx: " + txid+"]");
-        senttxs.push({seq:seq,txid:txid})
-
-        /* Iterate on chunks */
-        if(seq == chunks.length-1){
-          return cb(null, senttxs)
-        }
-        else /* Send next chunk */
-          setTimeout(sendMsgTransaction(seq+1, cb), 1000)
-      });
-    })//getUnspentUtxos
-  }//sendMsgTransaction
-
-  /* Check if there are enough funds to send the whole message */
-  this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
-    if(err) return callback("[insight.getUnspentUtxos]: "+err);
-
-    var balance = 0
-    for (var i = 0; i < utxos.length; i++)
-      balance +=utxos[i]['satoshis'];
-    if(balance < (2*MIN_AMOUNT*chunks.length))
-      return callback("[BM]: not enough funds to send message");
-
-    try{
-      sendMsgTransaction(0, function(err, res){
-        if(err) callback(null, err)
-        return callback(null, res)
-      })
-    }catch(e){return callback(e)}
-  });
+  try{
+    this.bm.sendMessage(src, dst, msg, function(err, res){
+      if(err) return callback(null, err)
+      return callback(null, res)
+    })
+  } catch(e){ return callback(null, e) }
 }
-
-/*__________ RECEIVER FUNCTIONS __________*/
-/* Emits 'newmessage' event notifications to BM Nodes */
-//TODO: replace with this.bmnet.getNode().receiveMessage(msg) ?
-BitMExService.prototype.deliverMessage = function(src, dst, data){
-  var srcNode = this.bmnet.getNodeID(src.toString())
-  if(!srcNode) srcNode = dst.toString()
-  var dstNode = this.bmnet.getNodeID(dst.toString())
-  var message = {src:srcNode, dst:dstNode, data:data}
-
-  for(var i = 0; i < this.subscriptions.newmessage.length; i++)
-    this.subscriptions.newmessage[i].emit('bmservice/newmessage', message);
-}
-
-/* Collects received chunks */
-//TODO: handle multiple messages from A to B. Add Msg ID?
-BitMExService.prototype.collectMessage = function (src, dst, data){
-  var msglen = parseInt(data.charAt(3), 16);
-  var msgseq = parseInt(data.charAt(4), 16);
-  var msg = data.slice(5)
-
-  /* Add chunk to temporary storage */
-  var msgDB = this.messageStorage
-  if(!msgDB[src+dst])
-    msgDB[src+dst] = []
-  msgDB[src+dst][msgseq] = msg
-
-  /* If a message is complete, deliver it */
-  if(Object.keys(msgDB[src+dst]).length == msglen){
-    var fullmsg = BMutils.assembleChunks(msgDB[src+dst])
-    if(this.bmnet.getNodeID(dst.toString())){
-      this.deliverMessage(src, dst, fullmsg)
-      msgDB[src+dst] = []
-    }
-    else throw "ERR: destination "+dst.toString()+"is unreachable"
-  }
-}
-
-/* Handles received transactions */
-BitMExService.prototype.transactionHandler = function(txBuffer) {
-  var tx = bitcore.Transaction().fromBuffer(txBuffer);
-// if(DBG) this.log("New TX: "+tx.id)
-  if(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script){
-    if(BM.isBMTransaction(tx)){
-      if(DBG) this.log("New BM transaction ["+tx.id+"]");
-      var srcAddr = tx.inputs[0].script.toAddress(this.node.network);
-      var dstAddr = tx.outputs[0].script.toAddress(this.node.network);
-
-      var msgsplit = tx.outputs[1].script.toString().split(" ")
-      var data = hexToAscii(msgsplit[msgsplit.length-1])
-
-      if(this.bmnet.isBMNodeAddr(dstAddr))
-      try{
-        this.collectMessage(srcAddr, dstAddr, data)
-      } catch(e){ this.log(e) }
-    }//if
-  }//if
-}//transactionHandler()
 
 /* [API] listen for new BM messages */
 BitMExService.prototype.waitMessage = function(net, callback){
@@ -373,9 +197,9 @@ BitMExService.prototype.waitMessage = function(net, callback){
 
 /* [API] listen for new BM messages from a specific BTC address */
 BitMExService.prototype.waitMessageFrom = function(src, callback){
-  var srcAddr = this.bmnet.isBMNodeID(src) ? this.bmnet.getNodeAddress(src) : src
+  var srcAddr = this.bm.bmnet.isBMNodeID(src) ? this.bm.bmnet.getNodeAddress(src) : src
 
-  if(this.isValidAddr(srcAddr)){
+  if(BMutils.isValidAddr(srcAddr, this.node.network)){
     var self=this
     this.bus.on('bmservice/newmessage', function(msg){
       if(msg.src == srcAddr || msg.src == self.bmnet.getNodeID(srcAddr))
@@ -387,9 +211,9 @@ BitMExService.prototype.waitMessageFrom = function(src, callback){
 
 /* [API] listen for new BM messages to a node of the network */
 BitMExService.prototype.waitMessageTo = function(dst, callback){
-  if(this.bmnet.isBMNodeAddr(dst)) dst = this.bmnet.getNodeID(dst)
+  if(this.bm.bmnet.isBMNodeAddr(dst)) dst = this.bm.bmnet.getNodeID(dst)
 
-  if(this.bmnet.isBMNodeID(dst)){
+  if(this.bm.bmnet.isBMNodeID(dst)){
     this.bus.on('bmservice/newmessage', function(msg){
       if(msg.dst == dst)
         callback(null, "New message from "+msg.src+": "+msg.data)
@@ -401,13 +225,13 @@ BitMExService.prototype.waitMessageTo = function(dst, callback){
 /* Set API endpoints */
 BitMExService.prototype.getAPIMethods = function(){
   return methods = [
-    ['tryapi', this, this.tryapi, 1],
+    ['getnetstatus', this, this.getNetStatus, 0],
     ['addnode', this, this.addNode, 2],
     ['createnode', this, this.createNode, 1],
     ['removenode', this, this.removeNode, 1],
+    ['getnodestatus', this, this.getNodeStatus, 1],
     ['sendmessage', this, this.sendMessage, 3],
     ['getmessages', this, this.getNodeMessages, 1],
-    ['getnodestatus', this, this.getNodeStatus, 1],
     ['waitmessage', this, this.waitMessage, 1],
     ['waitmessagefrom', this, this.waitMessageFrom, 1],
     ['waitmessageto', this, this.waitMessageTo, 1],
@@ -447,7 +271,7 @@ BitMExService.prototype.setupRoutes = function(app, express) {
 
 /*__________ LOG __________*/
 BitMExService.prototype.log = function(msg){
-  return BMutils.log('BM', msg)
+  return BMutils.log('BMService', msg)
 }
 
 /*__________ EXPORT __________*/
