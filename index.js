@@ -57,6 +57,7 @@ BitMExService.prototype.start = function(callback) {
   this.bus.subscribe('bmservice/broadcast');
 
   try {
+    //this.bm = new BM(this)
     this.loadNet("tstBMnet") //TODO: make net name dynamic for multi net
   } catch (e) {
     return this.log("ERR: Failed to start. RET:"+e);
@@ -286,7 +287,7 @@ BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
     })//getUnspentUtxos
   }//sendMsgTransaction
 
-  /* Check if there is enough funds to send the whole message */
+  /* Check if there are enough funds to send the whole message */
   this.insight.getUnspentUtxos(srcAddr, function(err, utxos){
     if(err) return callback("[insight.getUnspentUtxos]: "+err);
 
@@ -302,7 +303,6 @@ BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
         return callback(null, res)
       })
     }catch(e){return callback(e)}
-    //"Message sent ("+chunks.length+" chunks)")
   });
 }
 
@@ -343,33 +343,12 @@ BitMExService.prototype.collectMessage = function (src, dst, data){
   }
 }
 
-/* Check 'tx' for BM messages */
-BitMExService.prototype.isBMTransaction = function(tx){
-  if(tx.tx) tx=tx
-  if(tx.outputs.length < 2) return false
-
-  /* Get script for the 2nd output */
-  var script = tx.outputs[1].script
-  if(!script.isDataOut()) return false
-
-  /* Decode */
-  var msgsplit = script.toString().split(" ")
-  var msgcode = msgsplit[msgsplit.length-1]
-  var data = hexToAscii(msgcode)
-
-  /* Verify BM prefix */
-  var BMcode = data.substring(0,3)
-  if(BMcode.localeCompare(TX_PREFIX)!=0) return false
-
-  return true
-}//isBMTransaction()
-
 /* Handles received transactions */
 BitMExService.prototype.transactionHandler = function(txBuffer) {
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
 // if(DBG) this.log("New TX: "+tx.id)
   if(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script){
-    if(this.isBMTransaction(tx)){
+    if(BM.isBMTransaction(tx)){
       if(DBG) this.log("New BM transaction ["+tx.id+"]");
       var srcAddr = tx.inputs[0].script.toAddress(this.node.network);
       var dstAddr = tx.outputs[0].script.toAddress(this.node.network);

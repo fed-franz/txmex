@@ -64,3 +64,17 @@ module.exports = {
   isBMTransaction: isBMTransaction,
   getMessage: getBMMessage,
 };
+
+/* BitMEx Class */
+/* Constructor */
+function BitMEx(BTCNode){
+  if(!BTCNode) throw "ERR: BitMEx requires a Bitcore Node instance"
+
+  // EventEmitter.call(this, options);
+  this.node = options.node;
+  this.msgDB = {}
+
+  // this.on('error', function(err) {
+  //   this.log(err.stack);
+  // });
+}
