@@ -1,6 +1,6 @@
 const bitcore = require('bitcore-lib')
-const tBTC = bitcore.Networks.testnet
-const BTC = bitcore.Networks.livenet
+// const tBTC = bitcore.Networks.testnet
+// const BTC = bitcore.Networks.livenet
 
 module.exports = {
   log: prefixLog,
@@ -8,6 +8,7 @@ module.exports = {
   hexToAscii: hexToAscii,
   createBTCKey: createBTCKey,
   getBTCAddr: getBTCAddr,
+  isValidAddr: isValidAddr,
   chunkMessage: chunkMessage,
   assembleChunks: assembleChunks,
 };
@@ -80,4 +81,8 @@ function createBTCKey(){
 function getBTCAddr(privKey, BTCnet){
   var pk = new bitcore.PrivateKey(privKey)
   return pk.toAddress(BTCnet).toString()
+}
+
+function isValidAddr(addr, net){
+  return bitcore.Address.isValid(addr, net)
 }
