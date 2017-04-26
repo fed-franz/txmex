@@ -1,4 +1,8 @@
+'use strict';
+
 const bitcore = require('bitcore-lib')
+const explorers = require('bitcore-explorers')
+const fs = require('fs')
 // const tBTC = bitcore.Networks.testnet
 // const BTC = bitcore.Networks.livenet
 
@@ -6,22 +10,62 @@ module.exports = {
   log: prefixLog,
   isNum: isNum,
   hexToAscii: hexToAscii,
+  getBTCNetwork: getBTCNetwork,
   createBTCKey: createBTCKey,
   getBTCAddr: getBTCAddr,
   isValidAddr: isValidAddr,
+  getBTCAddrBalance: getBTCAddrBalance,
   chunkMessage: chunkMessage,
   assembleChunks: assembleChunks,
+  existsFileDir: existsFileDir,
+  createDirectory: createDirectory,
+  getFileExtension: getFileExtension,
+  saveObject: saveObject,
+  loadObject: loadObject
 };
 
 module.exports.DBG = true
 module.exports.MODE = {
-    NEW : 1,
-    TMP : 2
+  DEFAULT: 1,
+  NEW : 2,
+  TMP : 3
 }
 
 /* Prints log with BM prefix */
 function prefixLog(prefix, msg){
   return console.log('['+prefix+'] '+msg);
+}
+
+/* Save an object to file */
+function saveObject(dir, name, data){
+  /* Write to disk */
+  if (!fs.existsSync(dir))
+    fs.mkdirSync(dir);
+  fs.writeFileSync(dir+'/'+name, JSON.stringify(data, null, 2));
+}
+
+/* Read object from file */
+function loadObject(fname){
+  if (!fs.existsSync(fname)) throw "ERR: filename does not exist"
+
+  var fileData = fs.readFileSync(fname);
+  var obj = JSON.parse(fileData);
+  return obj
+}
+
+/* Returns the extension of a file */
+function getFileExtension(fname){
+  return fname.substr((~-fname.lastIndexOf(".") >>> 0) + 2);
+}
+
+/* Return true is filename exists */
+function existsFileDir(fname){
+ return fs.existsSync(fname)
+}
+
+function createDirectory(dir){
+  if (!fs.existsSync(dir))
+    fs.mkdirSync(dir);
 }
 
 /* Split message 'str' in chunks of 'size' letters */
@@ -39,7 +83,7 @@ function chunkMessage(str, size) {
 /* Put chunks together */ //TODO: mv to BMutils as a general function
 function assembleChunks(chunks){
   var str = ""
-  for(i=0;i<chunks.length;i++){
+  for(var i=0; i<chunks.length; i++){
       str += chunks[i]
   }
 
@@ -85,4 +129,24 @@ function getBTCAddr(privKey, BTCnet){
 
 function isValidAddr(addr, net){
   return bitcore.Address.isValid(addr, net)
+}
+
+function getBTCNetwork(addr){
+  var addrObj = new bitcore.Address(addr)
+  return addrObj.network
+}
+
+function getBTCAddrBalance(addr, callback){
+  var network = getBTCNetwork(addr)
+  var insight = new explorers.Insight(network)
+
+  insight.getUnspentUtxos(addr, function(err, utxos){
+    if(err) return callback(err)
+
+    var balance = 0
+    for(var i in utxos)
+      balance += utxos[i].satoshis
+
+    return callback(null, balance)
+  });
 }
