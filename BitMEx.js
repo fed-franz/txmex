@@ -223,20 +223,35 @@ var getBMMessages = function(address, node, callback){
 }
 
 /* Returns the current status of a node */
-var getBMNodeStatus = function(address, callback){
+var getBMNodeStatus = function(address, node, callback){
   var network = BMutils.getBTCNetwork(address)
   insight = new explorers.Insight(network)
+
+  var nodeStatus = { "address": address }
 
   BMutils.getBTCAddrBalance(address, function(err, balance){
     if(err) return callback("[getBTCAddrBalance] "+err);
 
-    var status = {
-      "Address": address,
-      "Balance": balance+"("+(balance/(MIN_AMOUNT+MIN_FEE))+" messages can be sent, approximately)",
-    }
+    var nmsgs = Math.floor(balance/(MIN_AMOUNT+MIN_FEE))
+    nodeStatus.balance = balance+"("+nmsgs+" messages can be sent)";
 
-    return callback(null, status)
-  });
+    getBMMessages(address, node, function(err, msgs){
+      var inbox=[], outbox=[];
+
+      /* Divide messages in inbox/outbox */
+      for(var i in msgs){
+        var msg = msgs[i]
+        if(msg.src == address)
+          outbox.push({msg:msg.data, dst:msg.dst})
+        else
+          inbox.push({msg:msg.data, src:msg.src})
+      }
+
+      nodeStatus.messages = {inbox:inbox, outbox:outbox};
+
+      return callback(null, nodeStatus)
+    })//getBMMessages
+  })//getBTCAddrBalance
 }
 
 /* Module exports */
