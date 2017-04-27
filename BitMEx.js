@@ -1,3 +1,4 @@
+/* BitMEx.js */
 const bitcore = require('bitcore-lib')
 const explorers = require('bitcore-explorers');
 
@@ -37,7 +38,10 @@ var _getTxData = function(tx, index){
   return data
 }
 
-/* Check 'tx' for BM messages */
+/* Check if 'tx' contains a BM message */
+/**
+ * @param {bitcore.Transaction} tx
+ */
 var isBMTransaction = function(tx){
   if(!(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script))
     return false
@@ -55,6 +59,9 @@ var isBMTransaction = function(tx){
 }//isBMTransaction()
 
 /* Extract the embedded message (if any) */
+/**
+ * @param {bitcore.Transaction} tx
+ */
 var extractBMMessage = function(tx){
   if(tx.tx) tx = tx.tx
 
@@ -71,6 +78,10 @@ var extractBMMessage = function(tx){
 }
 
 /* Send a BitMEx message */
+/**
+ * @param {Object} msgData - {src, dst, msg, privKey}
+ * @param {Number} index - index of transaction output to extract data from
+ */
 var sendBMMessage = function(msgData, callback){
   if(DBG) console.log("[BitMEx] sendBMMessage");
   var srcAddr = msgData.src
@@ -80,30 +91,22 @@ var sendBMMessage = function(msgData, callback){
 
   var network = BMutils.getBTCNetwork(srcAddr)
   var insight = new explorers.Insight(network)
-  /* Check src and dst */
+
+  /* Check validity of src and dst */
   if(!isValidAddr(srcAddr, network) || !isValidAddr(dstAddr, network))
     return callback("Invalid address")
 
   /* Split message in chunks */
   var chunks = BMutils.chunkMessage(msg, MAX_PAYLOAD_SIZE)
 
-  /* Function to send a transaction with an embedde message chunk */
   var senttxs = []
-  //TODO: put seq here
-  var sendMsgTransaction = function(seq, cb){
+  var seq = 0
+  /* Function to send a transaction with an embedded message chunk */
+  var sendMsgTransaction = function(cb){
     if(DBG) console.log("sendMsgTransaction "+seq);
     /* Get UTXOs to fund new transaction */
     insight.getUnspentUtxos(srcAddr, function(err, utxos){
-      if(DBG) console.log("getUnspentUtxos");
-      if(err) return cb("[insight.getUnspentUtxos]: "+err);
-      if(utxos.length == 0){
-        if(network == BTC)
-          return cb("ERR: Not enough Satoshis to make transaction");
-        else{
-          //TODO: get new coins from faucet AND RETRY
-          return cb("ERR: Not enough Satoshis to make transaction");
-        }
-      }
+      if(err) return cb("[getUnspentUtxos]: "+err);
 
       /* Set the prefix */
       seqcode = seq.toString(16)
@@ -134,28 +137,37 @@ var sendBMMessage = function(msgData, callback){
         insight.broadcast(tx, function(err, txid){
           if(err) return cb('[insight.broadcast]: '+err+tx);
 
+          /* Transaction sent */
           senttxs.push(txid)
 
           /* Iterate on chunks */
           if(seq == chunks.length-1){
             return cb(null, senttxs)
           }
-          else /* Send next chunk */
-          setTimeout(sendMsgTransaction(seq+1, cb), 500)
+          else{ /* Send next chunk */
+            seq++;
+            setTimeout(sendMsgTransaction(cb), 500)
+          }
         });
       } catch(e){ return cb(e) }
     })//getUnspentUtxos
   }//sendMsgTransaction
 
-  /* Check if there are enough funds to send the whole message */
+  /* Check if there are enough funds to send all chunks */
   BMutils.getBTCAddrBalance(srcAddr, function(err, balance){
     if(err) return callback("[getBTCAddrBalance]: "+err);
 
     if(balance < ((MIN_AMOUNT+MIN_FEE)*chunks.length))
-      return callback("Not enough funds to send message");
+      if(network == BTC)
+        return cb("ERR: Not enough fund to send the message");
+      else{
+        //TODO: get new coins from faucet AND RETRY
+        return cb("ERR: Not enough fund to send the message");
+      }
 
+    /* Send chunks */
     try{
-      sendMsgTransaction(0, function(err, res){
+      sendMsgTransaction(function(err, res){
         if(err) return callback(err)
         return callback(null, res)
       })
@@ -164,10 +176,15 @@ var sendBMMessage = function(msgData, callback){
 }
 
 /* Returns all messages sent and received by a node */
-//TODO: create new node dynamically?
+/**
+ * @param {String} address
+ * @param {Bitcore.Node} node
+ * @param {Function} callback
+ */
 var getBMMessages = function(address, node, callback){
   var msgs = []
 
+  /* Get the transaction history of the node*/
   node.getAddressHistory(address, {queryMempool: true}, function(err, res){
     if(err) return callback(e)
 
@@ -193,9 +210,11 @@ var getBMMessages = function(address, node, callback){
         for(var j=0; j<txMsg.len; j++)
           if(!chnkBuf[msgid][j]) complete = false;
 
+        /* If so... */
         if(complete){
           var msg = ""
           var msgtxs = []
+          /* For every chunk/transaction... */
           for(var j=0; j<txMsg.len; j++){
             /* Assemble message */
             msg += chnkBuf[msgid][j].msg
@@ -213,6 +232,7 @@ var getBMMessages = function(address, node, callback){
           }
           msgs.push(msgData);
 
+          /* Clear buffer */
           delete chnkBuf[msgid]
         }//if(complete)
       }//if(txMsg)
@@ -223,18 +243,24 @@ var getBMMessages = function(address, node, callback){
 }
 
 /* Returns the current status of a node */
+/**
+ * @param {String} address
+ * @param {Bitcore.Node} node
+ */
 var getBMNodeStatus = function(address, node, callback){
   var network = BMutils.getBTCNetwork(address)
   insight = new explorers.Insight(network)
 
   var nodeStatus = { "address": address }
 
+  /* Get funds */
   BMutils.getBTCAddrBalance(address, function(err, balance){
     if(err) return callback("[getBTCAddrBalance] "+err);
 
     var nmsgs = Math.floor(balance/(MIN_AMOUNT+MIN_FEE))
     nodeStatus.balance = balance+"("+nmsgs+" messages can be sent)";
 
+    /* Get BM messages */
     getBMMessages(address, node, function(err, msgs){
       var inbox=[], outbox=[];
 
@@ -254,7 +280,8 @@ var getBMNodeStatus = function(address, node, callback){
   })//getBTCAddrBalance
 }
 
-/* Module exports */
+/*****************************************************************************/
+
 module.exports = {
   getBMNodeStatus: getBMNodeStatus,
   isBMTransaction: isBMTransaction,

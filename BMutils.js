@@ -1,10 +1,9 @@
+/* BMutils.js */
 'use strict';
 
 const bitcore = require('bitcore-lib')
 const explorers = require('bitcore-explorers')
 const fs = require('fs')
-// const tBTC = bitcore.Networks.testnet
-// const BTC = bitcore.Networks.livenet
 
 module.exports = {
   log: prefixLog,
@@ -36,6 +35,8 @@ function prefixLog(prefix, msg){
   return console.log('['+prefix+'] '+msg);
 }
 
+/*__________ FILESYSTEM __________*/
+
 /* Save an object to file */
 function saveObject(dir, name, data){
   /* Write to disk */
@@ -63,11 +64,13 @@ function existsFileDir(fname){
  return fs.existsSync(fname)
 }
 
+/* Creates a directory */
 function createDirectory(dir){
   if (!fs.existsSync(dir))
     fs.mkdirSync(dir);
 }
 
+/*__________ STRINGS __________*/
 /* Split message 'str' in chunks of 'size' letters */
 function chunkMessage(str, size) {
   var numChunks = Math.ceil(str.length / size),
@@ -80,7 +83,7 @@ function chunkMessage(str, size) {
   return chunks;
 }
 
-/* Put chunks together */ //TODO: mv to BMutils as a general function
+/* Put string chunks together */
 function assembleChunks(chunks){
   var str = ""
   for(var i=0; i<chunks.length; i++){
@@ -90,6 +93,7 @@ function assembleChunks(chunks){
   return str
 }
 
+/*__________ NUMBERS __________*/
 /* Convert hex string to ASCII */
 function hexToAscii (str1){
   var hex  = str1.toString();
@@ -100,11 +104,11 @@ function hexToAscii (str1){
   return str;
 }
 
-/* TEMP */
-function randHex(length) {
+/* Creates a random hexadecimal value of 'len' length */
+function randHex(len) {
   var chars = '0123456789abcdef';
   var result = '';
-  for (var i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
+  for (var i = len; i > 0; --i) result += chars[Math.floor(Math.random() * chars.len)];
 
   return result;
 }
@@ -127,15 +131,24 @@ function getBTCAddr(privKey, BTCnet){
   return pk.toAddress(BTCnet).toString()
 }
 
-function isValidAddr(addr, net){
-  return bitcore.Address.isValid(addr, net)
-}
-
+/* Return the network for */
 function getBTCNetwork(addr){
   var addrObj = new bitcore.Address(addr)
   return addrObj.network
 }
 
+/* Check if 'addr' is a valid address for 'net' network*/
+function isValidAddr(addr, net){
+  return bitcore.Address.isValid(addr, net)
+}
+
+/* Check if 'addr' is a valid Bitcoin address */
+function isValidBTCAddr(addr){
+  var net = getBTCNetwork(addr)
+  return bitcore.Address.isValid(addr, net)
+}
+
+/* Returns the total spendable satoshis for 'addr' */
 function getBTCAddrBalance(addr, callback){
   var network = getBTCNetwork(addr)
   var insight = new explorers.Insight(network)

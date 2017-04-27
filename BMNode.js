@@ -1,6 +1,6 @@
 /* BMNode.js */
-// var EventEmitter = require('events').EventEmitter;
-// var util = require('util');
+'use strict'
+
 var fs = require('fs');
 var BMutils = require('./BMutils')
 const DBG = BMutils.DBG
@@ -89,13 +89,13 @@ BMNode.prototype.getPrivKey = function(){
 
 /* Handle a received message */
 BMNode.prototype.handleMessage = function (message){
-  msg = message.data
-  src = message.src
+  var msg = message.data
+  var src = message.src
   if(DBG) this.log('Message from \''+src+'\': '+msg);
 
   /* Interpret commands in the message */
   //TODO: create rules set (this.rules)
-  cmd = msg.substring(0,3)
+  var cmd = msg.substring(0,3)
   switch (cmd) {
     case 'ack':
       break;

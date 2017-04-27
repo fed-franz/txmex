@@ -12,32 +12,26 @@ const BMutils = require('./BMutils')
 
 const MODE = BMutils.MODE
 const DBG = BMutils.DBG
-var BM_NET_FILE = 'bmnet.json'
-var tBTC = bitcore.Networks.testnet
-var BTC = bitcore.Networks.livenet
-var insight = new explorers.Insight(tBTC);
-var MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 
 /***** Constructor *****/
-function BMNet(bm, options){
+function BMNet(bm){
   if(!bm) throw "Missing BM instance"
-  if(!options) throw "Missing options"
 
   this.bm = bm
   this.bmnodes = {}
 
   this.loadBMNet()
-  if(this.bmnodes.length == 0) throw "Empty network"
 }
 
 /* Load nodes data frome file */
 BMNet.prototype.loadBMNet = function(){
-if(DBG) this.log("Loading nodes...")
+  if(DBG) this.log("loadBMNet")
   var dir = this.bm.dir
   var files = fs.readdirSync(dir)
   var self = this
+
+  /* Read node files (.dat) in the data folder */
   files.forEach(function(file){
-    /* Read .dat files */
     if(BMutils.getFileExtension(file) == 'dat')
       try {
           var nodeData = BMutils.loadObject(dir+'/'+file)
@@ -46,16 +40,14 @@ if(DBG) this.log("Loading nodes...")
   })
 }
 
-/* Returns the BMNet status */
+/* Returns the status of the network */
 BMNet.prototype.getStatus = function(){
   var status = {}
   status.name = this.bm.name
 
-  var nodes = []
+  status.nodes = []
   for(var id in this.bmnodes)
-    nodes.push({id:id, address: this.bmnodes[id].addr})
-
-  status.nodes = nodes
+    status.nodes.push({id:id, address: this.bmnodes[id].addr})
 
   return status
 }
