@@ -38,9 +38,14 @@ Messages are splitted into chunks, each of which is embedded into a transaction,
 Each transaction sends 546 satoshis (the minimum valid amount), and adds a fee of 3000 (a little higher than the minimum required by Bitcore).
 
 The format of the message is:
-   0-1    2     3         4-79
+
 -------------------------------------
-| 'BM' | len | seq |  message_chunk |
+   0-1    2     3         4-79
+ ___________________________________
+|                                   |
+| 'BM' | len | seq | message_chunk  |
+|___________________________________|
+ 
 -------------------------------------
 
 ## Limitations
