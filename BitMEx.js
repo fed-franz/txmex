@@ -9,7 +9,7 @@ const BTC = Networks.livenet
 const TX_PREFIX = "BM"
 const MAX_PAYLOAD_SIZE = 76
 const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
-const MIN_FEE = 5000//2667
+const MIN_FEE = 3000//2667
 
 const BMutils = require('./BMutils');
 const MODE = BMutils.MODE
