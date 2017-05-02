@@ -1,5 +1,5 @@
 {
-  "name": "bitmex",
+  "name": "bmex",
   "version": "0.6.0",
   "main": "index.js",
   "scripts": {
@@ -8,6 +8,7 @@
   "author": "Federico Franzoni",
   "license": "MIT",
   "dependencies": {
+    "bitcore-node": "*",
     "bitcore-explorers": "*",
     "bitcore-lib": "*",
     "insight-api": "*"
