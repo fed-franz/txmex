@@ -1,16 +1,16 @@
 {
-  "name": "adservice",
-  "version": "1.0.0",
+  "name": "bitmex",
+  "version": "0.6.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Federico Franzoni",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "bitcore-explorers": "*",
     "bitcore-lib": "*",
-    "minimist": "*"
+    "insight-api": "*"
   },
   "devDependencies": {},
   "description": ""
