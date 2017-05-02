@@ -1,31 +1,26 @@
 /* BMNet.js */
 'use strict';
 
-//TODO: createNetwork(numNodes)
-
-var bitcore = require('bitcore-lib')
-var explorers = require('bitcore-explorers');
 var fs = require('fs');
-const BMService = require('./index');
 const BMNode = require('./BMNode')
 const BMutils = require('./BMutils')
 
 const MODE = BMutils.MODE
-const DBG = BMutils.DBG
 
 /***** Constructor *****/
+//TODO: add 'options' parameter {numnodes}
 function BMNet(bm){
   if(!bm) throw "Missing BM instance"
 
   this.bm = bm
   this.bmnodes = {}
+  this.log = this.bm.bms.log
 
   this.loadBMNet()
 }
 
 /* Load nodes data frome file */
 BMNet.prototype.loadBMNet = function(){
-  if(DBG) this.log("loadBMNet")
   var dir = this.bm.dir
   var files = fs.readdirSync(dir)
   var self = this
@@ -36,8 +31,13 @@ BMNet.prototype.loadBMNet = function(){
       try {
           var nodeData = BMutils.loadObject(dir+'/'+file)
           self.addBMNode(nodeData, MODE.DEFAULT)
-      } catch(e) { self.log("ERR: Failed to load "+file+": "+e); }
+      } catch(e) { self.log.warn("Failed to load "+file+": "+e); }
   })
+
+  this.log.info("''"+this.bm.name+"' network loaded")
+  if(Object.keys(this.bmnodes).length == 0)
+    this.log.warn("Network is empty")
+
 }
 
 /* Returns the status of the network */
@@ -53,7 +53,7 @@ BMNet.prototype.getStatus = function(){
 }
 
 /* Creates a new dynamic node ID */
-BMNet.prototype.generateID = function(base){
+BMNet.prototype._generateID = function(base){
   if(!base) base = 'N'
   var maxn = 1
 
@@ -70,8 +70,8 @@ BMNet.prototype.generateID = function(base){
 /* Adds a BMNode to this network */
 BMNet.prototype.addBMNode = function(nodeData, mode){
   if(!nodeData.id){
-    if(mode == MODE.TMP) nodeData.id = this.generateID('TMP')
-    else nodeData.id = this.generateID()
+    if(mode == MODE.TMP) nodeData.id = this._generateID('TMP')
+    else nodeData.id = this._generateID()
   }
 
   var node = new BMNode(this, nodeData, mode)
@@ -131,10 +131,5 @@ BMNet.prototype.isBMNodeAddr = function(addr){
 }
 
 /*****************************************************************************/
-
-/* Prints log with Node prefix */
-BMNet.prototype.log = function(msg){
-  return BMutils.log(this.bm.name, msg)
-}
 
 module.exports = BMNet;
