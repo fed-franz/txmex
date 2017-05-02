@@ -1,12 +1,12 @@
-# bitmex
+# BitMEx
 Bitcoin Message Exchange (BitMEx) is a service for Bitcore that allows to send and receive messages between the nodes of a Bitcoin network
 
-#Requirements
+## Requirements
 - bitcore-lib
 - bitcore-explorers
 - insight-api
 
-#Set-up
+## Set-up
  * Install NVM: `wget https://raw.githubusercontent.com/creationix/nvm/v0.33.1/install.sh | bash`
  * Install Node 4: `nvm install 4`
  * Install NPM: `apt-get install npm`
@@ -18,7 +18,7 @@ Bitcoin Message Exchange (BitMEx) is a service for Bitcore that allows to send a
  * Add "bitmex" to the "services" in 'bitcore-node.json' configuration file in the Bitcore node folder. Optionally you can add the "web" service if you plan to use the web APIs.
 
 
-#Usage
+## Usage
 In order to interact with the BitMEx service, you can use the 'bitcore call' API command.
 
 The available commands are:
@@ -33,7 +33,7 @@ The available commands are:
 - waitmessagefrom: wait for a new BM message from a specific source address; SYNTAX: 'waitmessagefrom {NAME|ADDR}'
 - waitmessageto: wait for a new BM message to a specific source address; SYNTAX: 'waitmessage NAME'
 
-#BitMEx protocol details
+## BitMEx protocol details
 Messages are splitted into chunks, each of which is embedded into a transaction, through the OP_RETURN Script command.
 Each transaction sends 546 satoshis (the minimum valid amount), and adds a fee of 3000 (a little higher than the minimum required by Bitcore).
 
@@ -43,7 +43,7 @@ The format of the message is:
 | 'BM' | len | seq |  message_chunk |
 -------------------------------------
 
-#Limitations
+## Limitations
 - BitMEx does not encrypt private key, so they are currently stored in clear on the hard drive
 - Nodes need funds to send messages. (I plained to add an automatica faucet request, for Testnet)
 - BitMEx currently support one network per-node (but its design allows to handle multiple ones, so it will be implemented soon)
