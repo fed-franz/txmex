@@ -23,7 +23,7 @@ module.exports = {
   loadObject: loadObject
 };
 
-module.exports.DBG = true
+module.exports.DBG = false
 module.exports.MODE = {
   DEFAULT: 1,
   NEW : 2,

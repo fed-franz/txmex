@@ -4,6 +4,10 @@ var EventEmitter = require('events');
 var bitcore = require('bitcore-lib');
 var explorers = require('bitcore-explorers');
 
+var index = require('../bitcore-node/index');
+var errors = index.errors;
+var log = index.log;
+
 // var Service = require('bitcore-node').Service;
 const BM = require('./BM')
 const BMutils = require('./BMutils');
@@ -32,7 +36,7 @@ function BitMExService(options){
   }
 
   this.on('error', function(err) {
-    this.log(err.stack);
+    log.error(err.stack);
   });
 }
 /* inherits the service base class */
@@ -48,11 +52,16 @@ BitMExService.prototype.start = function(callback){
   this.bus.subscribe('bmservice/newmessage');
   this.bus.subscribe('bmservice/broadcast');
 
+  log.info("BitMEx Service Ready")
   try {
     //TODO: for each net - BitMExNet
-    this.bm = new BM(this, {dir:dataDir, name:'tstBMNet'})
+    this.bm = new BM(this, {dir:dataDir, name:'defaultBMnet'})
+    log.info("BitMEx: '"+this.bm.name+"' network has been loaded")
+    var bmnodes = this.bm.bmnet.bmnodes
+    if(Object.keys(bmnodes).length == 0)
+      log.warn("BitMEx: '"+this.bm.name+"' network is empty")
   } catch (e) {
-    this.log("ERROR: Failed to start: "+e);
+    log.error("ERROR: BitMEx failed to start: "+e);
     return callback(e)
   }
 
@@ -99,7 +108,7 @@ BitMExService.prototype.transactionHandler = function(txBuffer) {
 
   try{
     this.bm.handleTransaction(tx)
-  } catch(e) { this.log("ERROR: "+e) }
+  } catch(e) { log.error("BitMEx: "+e) }
 }//transactionHandler()
 
 /* __________ API FUNCTIONS (NET) __________ */
@@ -243,8 +252,7 @@ BitMExService.prototype.setupRoutes = function(app, express) {
 
 /*****************************************************************************/
 
-BitMExService.prototype.log = function(msg){
-  return BMutils.log('BMService', msg)
+BitMExService.prototype.log = log
 }
 
 /* Set API endpoints */
