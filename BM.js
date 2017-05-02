@@ -5,7 +5,6 @@ var BitMEx = require('./BitMEx')
 var BMNet = require('./BMNet')
 
 const BMutils = require('./BMutils');
-const DBG = BMutils.DBG
 const isValidAddr = BMutils.isValidAddr
 const hexToAscii = BMutils.hexToAscii
 
@@ -24,7 +23,7 @@ function BM(bms, options){
   BMutils.createDirectory(this.dir)
   this.msgDB = {}
 
-
+  this.log = this.bms.log
   /* Load existing network  or create a new one */
   this.bmnet = new BMNet(this, {})
 }
@@ -37,7 +36,6 @@ function BM(bms, options){
  */
 BM.prototype.createNode = function(id){
   if(!id) throw "ERR: Missing ID"
-if(DBG) this.log("Creating new node")
 
   var nodeID = this.bmnet.addBMNode({id}, MODE.NEW)
 
@@ -107,7 +105,7 @@ BM.prototype.getNodeMessages = function(id, callback){
 /*__________ SENDER FUNCTIONS __________*/
 /* Send a message */
 BM.prototype.sendMessage = function(src, dst, msg, callback){
-  if(DBG) this.log("sendMessage - \'"+msg+"\' from "+src+" to "+dst);
+  this.log.info("Sending message - \'"+msg+"\' from "+src+" to "+dst);
 
   /* Check src and dst */
   var srcAddr = this.bmnet.getNodeAddress(src)
@@ -131,7 +129,7 @@ BM.prototype.sendMessage = function(src, dst, msg, callback){
 /* Handles received transactions */
 BM.prototype.handleTransaction = function(tx) {
   if(BitMEx.isBMTransaction(tx)){
-if(DBG) this.log("New BM transaction ["+tx.id+"]");
+    this.log.info("BitMEx transaction received: "+tx.id);
     var src = tx.inputs[0].script.toAddress(this.network);
     var dst = tx.outputs[0].script.toAddress(this.network);
 
@@ -185,9 +183,5 @@ BM.prototype.deliverMessage = function(src, dst, data){
 }
 
 /*****************************************************************************/
-
-BM.prototype.log = function(msg){
-  return BMutils.log('BM', msg)
-}
 
 module.exports = BM;

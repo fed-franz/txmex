@@ -2,13 +2,13 @@ var util = require('util');
 var fs = require( 'fs' );
 var EventEmitter = require('events');
 var bitcore = require('bitcore-lib');
-var explorers = require('bitcore-explorers');
 
 var index = require('../bitcore-node/index');
 var errors = index.errors;
 var log = index.log;
 
 // var Service = require('bitcore-node').Service;
+const BM_NAME = 'BitMEx'
 const BM = require('./BM')
 const BMutils = require('./BMutils');
 const MODE = BMutils.MODE
@@ -56,10 +56,6 @@ BitMExService.prototype.start = function(callback){
   try {
     //TODO: for each net - BitMExNet
     this.bm = new BM(this, {dir:dataDir, name:'defaultBMnet'})
-    log.info("BitMEx: '"+this.bm.name+"' network has been loaded")
-    var bmnodes = this.bm.bmnet.bmnodes
-    if(Object.keys(bmnodes).length == 0)
-      log.warn("BitMEx: '"+this.bm.name+"' network is empty")
   } catch (e) {
     log.error("ERROR: BitMEx failed to start: "+e);
     return callback(e)
@@ -252,7 +248,10 @@ BitMExService.prototype.setupRoutes = function(app, express) {
 
 /*****************************************************************************/
 
-BitMExService.prototype.log = log
+BitMExService.prototype.log = {
+  info: function(msg) {log.info(BM_NAME+": "+msg)},
+  warn: function(msg) {log.warn(BM_NAME+": "+msg)},
+  error: function(msg) {log.error(BM_NAME+": "+msg)},
 }
 
 /* Set API endpoints */
@@ -271,5 +270,4 @@ BitMExService.prototype.getAPIMethods = function(){
   ];
 };
 
-/*__________ EXPORT __________*/
 module.exports = BitMExService;

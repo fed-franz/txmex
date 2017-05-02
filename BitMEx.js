@@ -1,4 +1,6 @@
 /* BitMEx.js */
+'use strict'
+
 const bitcore = require('bitcore-lib')
 const explorers = require('bitcore-explorers');
 
@@ -9,7 +11,8 @@ const BTC = Networks.livenet
 const TX_PREFIX = "BM"
 const MAX_PAYLOAD_SIZE = 76
 const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
-const MIN_FEE = 3500//2667
+const MIN_FEE = 3000//2667
+const MAX_SEND_RETRY = 3
 
 const BMutils = require('./BMutils');
 const MODE = BMutils.MODE
@@ -83,7 +86,6 @@ var extractBMMessage = function(tx){
  * @param {Number} index - index of transaction output to extract data from
  */
 var sendBMMessage = function(msgData, callback){
-  if(DBG) console.log("[BitMEx] sendBMMessage");
   var srcAddr = msgData.src
   var dstAddr = msgData.dst
   var msg = msgData.msg
@@ -101,16 +103,16 @@ var sendBMMessage = function(msgData, callback){
 
   var senttxs = []
   var seq = 0
+  var tries = 0
   /* Function to send a transaction with an embedded message chunk */
   var sendMsgTransaction = function(cb){
-    if(DBG) console.log("sendMsgTransaction "+seq);
     /* Get UTXOs to fund new transaction */
     insight.getUnspentUtxos(srcAddr, function(err, utxos){
       if(err) return cb("[getUnspentUtxos]: "+err);
 
       /* Set the prefix */
-      seqcode = seq.toString(16)
-      len = chunks.length.toString(16)
+      var seqcode = seq.toString(16)
+      var len = chunks.length.toString(16)
       var prefix = TX_PREFIX + len + seqcode
 
       /* Create Transaction */
@@ -135,7 +137,13 @@ var sendBMMessage = function(msgData, callback){
       /* Broadcast Transaction */
       try{
         insight.broadcast(tx, function(err, txid){
-          if(err) return cb('[insight.broadcast]: '+err+tx);
+          if(err){
+            if(tries < MAX_SEND_RETRY){
+              tries++;
+              return setTimeout(sendMsgTransaction(cb), 1000)
+            }
+            else return cb('[insight.broadcast]: '+err+tx);
+          }
 
           /* Transaction sent */
           senttxs.push(txid)

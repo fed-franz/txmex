@@ -3,7 +3,6 @@
 
 var fs = require('fs');
 var BMutils = require('./BMutils')
-const DBG = BMutils.DBG
 const MODE = BMutils.MODE
 
 /***** Constructor *****/
@@ -12,6 +11,7 @@ function BMNode(bmnet, nodeData, mode){
   if(!bmnet) throw "ERROR: Missing BMNet"
 
   this.bmnet = bmnet
+  this.log = this.bmnet.log
   this.id = nodeData.id
   this.privKey = (nodeData.privKey ? nodeData.privKey : BMutils.createBTCKey())
   this.addr = BMutils.getBTCAddr(this.privKey, this.bmnet.bm.network)
@@ -28,7 +28,7 @@ function BMNode(bmnet, nodeData, mode){
   //TODO: set per-network broadcast address
   if(this.id != 'broadcast'){
     bus.on('bmservice/broadcast', function(msg){
-      self.log('Received broadcast message: '+msg);
+      self.log.info('Received broadcast message: '+msg);
       /* Send ACK message to the sender */ //TODO: set optionally
       self.sendMessage('broadcast','ack')
     })
@@ -36,8 +36,6 @@ function BMNode(bmnet, nodeData, mode){
 
   if(mode == MODE.NEW)
     this.saveData()
-
-  if(DBG) this.log("Hello World!")
 }
 
 // util.inherits(BMNode, EventEmitter);
@@ -51,8 +49,6 @@ BMNode.prototype.destroy = function(){
 
 /* Save BMNode to file */
 BMNode.prototype.saveData = function(){ //(dir, name, data)
-  if(DBG) this.log("Saving data...")
-
   var nodeData = {
     "id": this.id,
     "privKey": this.privKey,
@@ -73,7 +69,7 @@ BMNode.prototype.sendMessage = function(dst, msg){
 
   var self = this
   this.bmnet.bm.sendMessage(src, dst, msg, function(){
-    if(DBG) self.log("Message "+msg+" sent")
+    self.log.info("["+this.id+"] Sent "+msg+" message to "+dst)
   })
 }
 
@@ -91,7 +87,7 @@ BMNode.prototype.getPrivKey = function(){
 BMNode.prototype.handleMessage = function (message){
   var msg = message.data
   var src = message.src
-  if(DBG) this.log('Message from \''+src+'\': '+msg);
+  this.log.info("["+this.id+"] Received message from "+src+": "+msg);
 
   /* Interpret commands in the message */
   //TODO: create rules set (this.rules)
@@ -108,10 +104,5 @@ BMNode.prototype.handleMessage = function (message){
 };
 
 /*****************************************************************************/
-
-/* Prints log with Node prefix */
-BMNode.prototype.log = function(msg){
-  return BMutils.log(this.id, msg)
-}
 
 module.exports = BMNode;
