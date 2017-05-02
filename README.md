@@ -13,8 +13,8 @@ Bitcoin Message Exchange (BitMEx) is a service for Bitcore that allows to send a
  * Install Bitcore requirements: `apt-get install libzmq3-dev build-essential curl`
  * Install Bitcore: `npm install -g bitcore`
  * Create your Bitcore full node: `bitcore create [--testnet] BTC_NODE`
- * Install bitcore-explorers and insight-api. From your node folder: `bitcore install insight-api; npm install bitcore-explorers`
- * Clone or download the bitmex repo in the node's node_module directory (this will be soon replaced by an integrated bitcore command)
+ * Install bitcore-explorers and insight-api. From your node folder: `bitcore add insight-api; npm install bitcore-explorers`
+ * Install bitmex: `bitcore add bmex` (https://www.npmjs.com/package/bmex)
  * Add "bitmex" to the "services" in 'bitcore-node.json' configuration file in the Bitcore node folder. Optionally you can add the "web" service if you plan to use the web APIs.
 
 
