@@ -13,8 +13,8 @@ Bitcoin Message Exchange (BitMEx) is a service for Bitcore that allows to send a
  * Install Bitcore requirements: `apt-get install libzmq3-dev build-essential curl`
  * Install Bitcore: `npm install -g bitcore`
  * Create your Bitcore full node: `bitcore create [--testnet] BTC_NODE`
- * Install bitcore-explorers and insight-api. From your node folder: `bitcore add insight-api; npm install bitcore-explorers`
- * Install bitmex: `bitcore add bmex` (https://www.npmjs.com/package/bmex)
+ * Install bitcore-explorers and insight-api. From your node folder: `bitcore install insight-api; npm install bitcore-explorers`
+ * Install bitmex: `bitcore-node add bmex` (https://www.npmjs.com/package/bmex)
  * Add "bitmex" to the "services" in 'bitcore-node.json' configuration file in the Bitcore node folder. Optionally you can add the "web" service if you plan to use the web APIs.
 
 
@@ -38,16 +38,11 @@ Messages are splitted into chunks, each of which is embedded into a transaction,
 Each transaction sends 546 satoshis (the minimum valid amount), and adds a fee of 3000 (a little higher than the minimum required by Bitcore).
 
 The format of the message is:
-
--------------------------------------
-   0-1    2     3         4-79
- ___________________________________
-|                                   |
-| 'BM' | len | seq | message_chunk  |
-|___________________________________|
  
--------------------------------------
+|. 0-1 .| . 2 . | . 3 . | ......... 4-79 ......... |
 
+| 'BM' | len | seq | message_chunk  |
+ 
 ## Limitations
 - BitMEx does not encrypt private key, so they are currently stored in clear on the hard drive
 - Nodes need funds to send messages. (I plained to add an automatica faucet request, for Testnet)
