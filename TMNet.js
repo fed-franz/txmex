@@ -1,135 +1,135 @@
-/* BMNet.js */
+/* TMNet.js */
 'use strict';
 
 var fs = require('fs');
-const BMNode = require('./BMNode')
-const BMutils = require('./BMutils')
+const TMNode = require('./TMNode')
+const TMutils = require('./TMutils')
 
-const MODE = BMutils.MODE
+const MODE = TMutils.MODE
 
 /***** Constructor *****/
 //TODO: add 'options' parameter {numnodes}
-function BMNet(bm){
-  if(!bm) throw "Missing BM instance"
+function TMNet(tm){
+  if(!tm) throw "Missing TM instance"
 
-  this.bm = bm
-  this.bmnodes = {}
-  this.log = this.bm.bms.log
+  this.tm = tm
+  this.tmnodes = {}
+  this.log = this.tm.tms.log
 
-  this.loadBMNet()
+  this.loadTMNet()
 }
 
 /* Load nodes data frome file */
-BMNet.prototype.loadBMNet = function(){
-  var dir = this.bm.dir
+TMNet.prototype.loadTMNet = function(){
+  var dir = this.tm.dir
   var files = fs.readdirSync(dir)
   var self = this
 
   /* Read node files (.dat) in the data folder */
   files.forEach(function(file){
-    if(BMutils.getFileExtension(file) == 'dat')
+    if(TMutils.getFileExtension(file) == 'dat')
       try {
-          var nodeData = BMutils.loadObject(dir+'/'+file)
-          self.addBMNode(nodeData, MODE.DEFAULT)
+          var nodeData = TMutils.loadObject(dir+'/'+file)
+          self.addTMNode(nodeData, MODE.DEFAULT)
       } catch(e) { self.log.warn("Failed to load "+file+": "+e); }
   })
 
-  this.log.info("''"+this.bm.name+"' network loaded")
-  if(Object.keys(this.bmnodes).length == 0)
+  this.log.info("''"+this.tm.name+"' network loaded")
+  if(Object.keys(this.tmnodes).length == 0)
     this.log.warn("Network is empty")
 
 }
 
 /* Returns the status of the network */
-BMNet.prototype.getStatus = function(){
+TMNet.prototype.getStatus = function(){
   var status = {}
-  status.name = this.bm.name
+  status.name = this.tm.name
 
   status.nodes = []
-  for(var id in this.bmnodes)
-    status.nodes.push({id:id, address: this.bmnodes[id].addr})
+  for(var id in this.tmnodes)
+    status.nodes.push({id:id, address: this.tmnodes[id].addr})
 
   return status
 }
 
 /* Creates a new dynamic node ID */
-BMNet.prototype._generateID = function(base){
+TMNet.prototype._generateID = function(base){
   if(!base) base = 'N'
   var maxn = 1
 
-  for(var id in this.bmnodes){
+  for(var id in this.tmnodes){
     if(id.startsWith(base)){
       var idnum = id.substring(base.length,id.length)
-      if(BMutils.isNum(idnum) && idnum >= maxn) maxn = parseInt(idnum)+1
+      if(TMutils.isNum(idnum) && idnum >= maxn) maxn = parseInt(idnum)+1
     }
   }
 
   return base+maxn
 }
 
-/* Adds a BMNode to this network */
-BMNet.prototype.addBMNode = function(nodeData, mode){
+/* Adds a TMNode to this network */
+TMNet.prototype.addTMNode = function(nodeData, mode){
   if(!nodeData.id){
     if(mode == MODE.TMP) nodeData.id = this._generateID('TMP')
     else nodeData.id = this._generateID()
   }
 
-  var node = new BMNode(this, nodeData, mode)
-  this.bmnodes[nodeData.id] = node
+  var node = new TMNode(this, nodeData, mode)
+  this.tmnodes[nodeData.id] = node
   return {id:node.id, address:node.addr}
 }
 
-/* Remove a BMNode of this network */
+/* Remove a TMNode of this network */
 //TODO: opt MODE.KEEP (keep file)
-BMNet.prototype.removeBMNode = function(id){
-  if(!this.isBMNodeID(id)) throw "ERR: Invalid ID"
+TMNet.prototype.removeTMNode = function(id){
+  if(!this.isTMNodeID(id)) throw "ERR: Invalid ID"
 
   this.getNode(id).destroy()
-  delete this.bmnodes[id]
+  delete this.tmnodes[id]
 }
 
 /* Returns the node object */
-BMNet.prototype.getNode = function(id){
+TMNet.prototype.getNode = function(id){
   if(!id) throw "ERR: ID is required"
-  if(this.bmnodes[id]) return this.bmnodes[id];
+  if(this.tmnodes[id]) return this.tmnodes[id];
   else return null
 }
 
 /* Return the node ID for a specific BTC address */
-BMNet.prototype.getNodeID = function(addr){
+TMNet.prototype.getNodeID = function(addr){
   if(!addr) throw "ERR: addr is required"
-  for(var id in this.bmnodes)
-    if(this.bmnodes[id].getAddr() == addr) return id
+  for(var id in this.tmnodes)
+    if(this.tmnodes[id].getAddr() == addr) return id
   return null
 };
 
 /* Return the BTC address of a node */
-BMNet.prototype.getNodeAddress = function(id){
+TMNet.prototype.getNodeAddress = function(id){
   if(!id) throw "ERR: ID is required"
-  if(this.isBMNodeAddr(id)) return id
-  if(this.bmnodes[id])
-    return this.bmnodes[id].getAddr()
+  if(this.isTMNodeAddr(id)) return id
+  if(this.tmnodes[id])
+    return this.tmnodes[id].getAddr()
   return null
 };
 
 /* Returns true if 'node' corresponds to a node (ID/address) in this network */
-BMNet.prototype.isBMNode = function(node){
-  if(this.isBMNodeAddr(node) || this.isBMNodeID(node)) return true
+TMNet.prototype.isTMNode = function(node){
+  if(this.isTMNodeAddr(node) || this.isTMNodeID(node)) return true
   return false
 }
 
 /* Returns true if the ID corresponds to a node in this network */
-BMNet.prototype.isBMNodeID = function(id){
+TMNet.prototype.isTMNodeID = function(id){
   if(this.getNode(id)) return true
   return false
 }
 
 /* Returns true if the address corresponds to a node in this network */
-BMNet.prototype.isBMNodeAddr = function(addr){
+TMNet.prototype.isTMNodeAddr = function(addr){
   if(this.getNodeID(addr)) return true
   return false
 }
 
 /*****************************************************************************/
 
-module.exports = BMNet;
+module.exports = TMNet;

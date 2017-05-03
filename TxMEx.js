@@ -8,17 +8,17 @@ const Networks = bitcore.Networks
 const tBTC = Networks.testnet
 const BTC = Networks.livenet
 
-const TX_PREFIX = "BM"
+const TX_PREFIX = "TM"
 const MAX_PAYLOAD_SIZE = 76
 const MIN_AMOUNT = bitcore.Transaction.DUST_AMOUNT
 const MIN_FEE = 3000//2667
 const MAX_SEND_RETRY = 3
 
-const BMutils = require('./BMutils');
-const MODE = BMutils.MODE
-const hexToAscii = BMutils.hexToAscii
-const isValidAddr = BMutils.isValidAddr
-const DBG = BMutils.DBG
+const TMutils = require('./TMutils');
+const MODE = TMutils.MODE
+const hexToAscii = TMutils.hexToAscii
+const isValidAddr = TMutils.isValidAddr
+const DBG = TMutils.DBG
 
 /* Extract embedded data from TX output */
 /**
@@ -41,11 +41,11 @@ var _getTxData = function(tx, index){
   return data
 }
 
-/* Check if 'tx' contains a BM message */
+/* Check if 'tx' contains a TM message */
 /**
  * @param {bitcore.Transaction} tx
  */
-var isBMTransaction = function(tx){
+var isTMTransaction = function(tx){
   if(!(tx.inputs[0] && tx.inputs[0].script && tx.outputs[0] && tx.outputs[0].script))
     return false
   if(tx.outputs.length < 2) return false
@@ -54,21 +54,21 @@ var isBMTransaction = function(tx){
   var data = _getTxData(tx, 2)
   if(!data) return false
 
-  /* Verify BM prefix */
-  var BMcode = data.substring(0,3)
-  if(BMcode.localeCompare(TX_PREFIX) != 0) return false
+  /* Verify TM prefix */
+  var TMcode = data.substring(0,3)
+  if(TMcode.localeCompare(TX_PREFIX) != 0) return false
 
   return true
-}//isBMTransaction()
+}//isTMTransaction()
 
 /* Extract the embedded message (if any) */
 /**
  * @param {bitcore.Transaction} tx
  */
-var extractBMMessage = function(tx){
+var extractTMMessage = function(tx){
   if(tx.tx) tx = tx.tx
 
-  if(!isBMTransaction(tx)) return null
+  if(!isTMTransaction(tx)) return null
 
   var msgsplit = tx.outputs[1].script.toString().split(" ")
   var data = hexToAscii(msgsplit[msgsplit.length-1])
@@ -85,13 +85,13 @@ var extractBMMessage = function(tx){
  * @param {Object} msgData - {src, dst, msg, privKey}
  * @param {Number} index - index of transaction output to extract data from
  */
-var sendBMMessage = function(msgData, callback){
+var sendTMMessage = function(msgData, callback){
   var srcAddr = msgData.src
   var dstAddr = msgData.dst
   var msg = msgData.msg
   var privKey = msgData.pk
 
-  var network = BMutils.getBTCNetwork(srcAddr)
+  var network = TMutils.getBTCNetwork(srcAddr)
   var insight = new explorers.Insight(network)
 
   /* Check validity of src and dst */
@@ -99,7 +99,7 @@ var sendBMMessage = function(msgData, callback){
     return callback("Invalid address")
 
   /* Split message in chunks */
-  var chunks = BMutils.chunkMessage(msg, MAX_PAYLOAD_SIZE)
+  var chunks = TMutils.chunkMessage(msg, MAX_PAYLOAD_SIZE)
 
   var senttxs = []
   var seq = 0
@@ -162,7 +162,7 @@ var sendBMMessage = function(msgData, callback){
   }//sendMsgTransaction
 
   /* Check if there are enough funds to send all chunks */
-  BMutils.getBTCAddrBalance(srcAddr, function(err, balance){
+  TMutils.getBTCAddrBalance(srcAddr, function(err, balance){
     if(err) return callback("[getBTCAddrBalance]: "+err);
 
     if(balance < ((MIN_AMOUNT+MIN_FEE)*chunks.length))
@@ -189,7 +189,7 @@ var sendBMMessage = function(msgData, callback){
  * @param {Bitcore.Node} node
  * @param {Function} callback
  */
-var getBMMessages = function(address, node, callback){
+var getTMMessages = function(address, node, callback){
   var msgs = []
 
   /* Get the transaction history of the node*/
@@ -198,7 +198,7 @@ var getBMMessages = function(address, node, callback){
 
     var txs = res.items
     var chnkBuf = {}
-    /* For each transaction, check and extract any embedded BM message */
+    /* For each transaction, check and extract any embedded TM message */
     for(var i=0; i<txs.length; i++){
       var tx = bitcore.Transaction().fromObject(txs[i].tx);
       var src = tx.inputs[0].script.toAddress(node.network).toString();
@@ -206,7 +206,7 @@ var getBMMessages = function(address, node, callback){
       var msgid = src+dst
 
       /* Exctract message (if any) */
-      var txMsg = extractBMMessage(tx)
+      var txMsg = extractTMMessage(tx)
       if(txMsg){
         if(!chnkBuf[msgid]) chnkBuf[msgid] = new Array(txMsg.len)
 
@@ -255,21 +255,21 @@ var getBMMessages = function(address, node, callback){
  * @param {String} address
  * @param {Bitcore.Node} node
  */
-var getBMNodeStatus = function(address, node, callback){
-  var network = BMutils.getBTCNetwork(address)
+var getTMNodeStatus = function(address, node, callback){
+  var network = TMutils.getBTCNetwork(address)
   insight = new explorers.Insight(network)
 
   var nodeStatus = { "address": address }
 
   /* Get funds */
-  BMutils.getBTCAddrBalance(address, function(err, balance){
+  TMutils.getBTCAddrBalance(address, function(err, balance){
     if(err) return callback("[getBTCAddrBalance] "+err);
 
     var nmsgs = Math.floor(balance/(MIN_AMOUNT+MIN_FEE))
     nodeStatus.balance = balance+"("+nmsgs+" messages can be sent)";
 
-    /* Get BM messages */
-    getBMMessages(address, node, function(err, msgs){
+    /* Get TM messages */
+    getTMMessages(address, node, function(err, msgs){
       var inbox=[], outbox=[];
 
       /* Divide messages in inbox/outbox */
@@ -284,16 +284,16 @@ var getBMNodeStatus = function(address, node, callback){
       nodeStatus.messages = {inbox:inbox, outbox:outbox};
 
       return callback(null, nodeStatus)
-    })//getBMMessages
+    })//getTMMessages
   })//getBTCAddrBalance
 }
 
 /*****************************************************************************/
 
 module.exports = {
-  getBMNodeStatus: getBMNodeStatus,
-  isBMTransaction: isBMTransaction,
-  extractBMMessage: extractBMMessage,
-  getBMMessages: getBMMessages,
-  sendBMMessage: sendBMMessage,
+  getTMNodeStatus: getTMNodeStatus,
+  isTMTransaction: isTMTransaction,
+  extractTMMessage: extractTMMessage,
+  getTMMessages: getTMMessages,
+  sendTMMessage: sendTMMessage,
 };
