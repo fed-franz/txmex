@@ -34,7 +34,7 @@ TMNet.prototype.loadTMNet = function(){
       } catch(e) { self.log.warn("Failed to load "+file+": "+e); }
   })
 
-  this.log.info("''"+this.tm.name+"' network loaded")
+  this.log.info("'"+this.tm.name+"' network loaded")
   if(Object.keys(this.tmnodes).length == 0)
     this.log.warn("Network is empty")
 

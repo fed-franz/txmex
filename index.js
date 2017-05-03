@@ -8,7 +8,7 @@ var errors = index.errors;
 var log = index.log;
 
 // var Service = require('bitcore-node').Service;
-const TM_NAME = 'BitMEx'
+const TM_NAME = 'TxMEx'
 const TM = require('./TM')
 const TMutils = require('./TMutils');
 const MODE = TMutils.MODE
@@ -25,7 +25,7 @@ if(!fs.existsSync(dataDir)){
 /* TM Service Class */
 /********************************************************************/
 /* Constructor */
-function BitMExService(options){
+function TxMExService(options){
   if(options){
     EventEmitter.call(this, options);
     this.node = options.node;
@@ -40,24 +40,24 @@ function BitMExService(options){
   });
 }
 /* inherits the service base class */
-util.inherits(BitMExService, EventEmitter);
+util.inherits(TxMExService, EventEmitter);
 
 /* Required services */
-BitMExService.dependencies = ['bitcoind','web','insight-api'];
+TxMExService.dependencies = ['bitcoind','web','insight-api'];
 
 /* Start service */
-BitMExService.prototype.start = function(callback){
+TxMExService.prototype.start = function(callback){
   this.node.services.bitcoind.on('tx', this.transactionHandler.bind(this));
   this.bus = this.node.openBus()
   this.bus.subscribe('bmservice/newmessage');
   this.bus.subscribe('bmservice/broadcast');
 
-  log.info("BitMEx Service Ready")
+  log.info("TxMEx Service Ready")
   try {
-    //TODO: for each net - BitMExNet
+    //TODO: for each net - TxMExNet
     this.bm = new TM(this, {dir:dataDir, name:'defaultTMnet'})
   } catch (e) {
-    log.error("ERROR: BitMEx failed to start: "+e);
+    log.error("ERROR: TxMEx failed to start: "+e);
     return callback(e)
   }
 
@@ -65,12 +65,12 @@ BitMExService.prototype.start = function(callback){
 };
 
 /* stop */
-BitMExService.prototype.stop = function(callback){
+TxMExService.prototype.stop = function(callback){
   callback();
 };
 
 /* Set service events */
-BitMExService.prototype.getPublishEvents = function(){
+TxMExService.prototype.getPublishEvents = function(){
   return [
       {
         name: 'bmservice/newmessage',
@@ -87,11 +87,11 @@ BitMExService.prototype.getPublishEvents = function(){
   ];
 };
 
-BitMExService.prototype.subscribe = function(name, emitter) {
+TxMExService.prototype.subscribe = function(name, emitter) {
   this.subscriptions[name].push(emitter);
 };
 
-BitMExService.prototype.unsubscribe = function(name, emitter) {
+TxMExService.prototype.unsubscribe = function(name, emitter) {
   var index = this.subscriptions[name].indexOf(emitter);
   if (index > -1) {
     this.subscriptions[name].splice(index, 1);
@@ -99,23 +99,23 @@ BitMExService.prototype.unsubscribe = function(name, emitter) {
 };
 
 /* Handles received transactions */
-BitMExService.prototype.transactionHandler = function(txBuffer) {
+TxMExService.prototype.transactionHandler = function(txBuffer) {
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
 
   try{
     this.bm.handleTransaction(tx)
-  } catch(e) { log.error("BitMEx: "+e) }
+  } catch(e) { log.error("TxMEx: "+e) }
 }//transactionHandler()
 
 /* __________ API FUNCTIONS (NET) __________ */
 
 /* [API] Prints the TMNet status */
-BitMExService.prototype.getNetStatus = function(callback){
+TxMExService.prototype.getNetStatus = function(callback){
   callback(null, this.bm.bmnet.getStatus())
 }
 
 /* [API] Adds a new node to a TM network. Requires PrivateKey */
-BitMExService.prototype.addNode = function(id, privKey, callback){
+TxMExService.prototype.addNode = function(id, privKey, callback){
   if(!id || !privKey) callback(null, "Syntax: addnode {ID, \'auto\',\'temp\'} privkey")
 
   if(id == 'temp') var mode = MODE.TMP
@@ -130,7 +130,7 @@ BitMExService.prototype.addNode = function(id, privKey, callback){
 }
 
 /* [API] Creates a new node */
-BitMExService.prototype.createNode = function(id, callback){
+TxMExService.prototype.createNode = function(id, callback){
   if(id == 'temp') var mode = MODE.TMP
   else var mode = MODE.NEW
   if(id == 'auto' || id == 'temp') id = ''
@@ -143,7 +143,7 @@ BitMExService.prototype.createNode = function(id, callback){
 }
 
 /* [API] Deletes a node */
-BitMExService.prototype.removeNode = function(id, callback){
+TxMExService.prototype.removeNode = function(id, callback){
   try {
     this.bm.bmnet.removeTMNode(id)
   } catch (e){ return callback(null, "ERROR: "+e) }
@@ -152,7 +152,7 @@ BitMExService.prototype.removeNode = function(id, callback){
 }
 
 /* [API] Print the status of a node */
-BitMExService.prototype.getNodeStatus = function(id, callback){
+TxMExService.prototype.getNodeStatus = function(id, callback){
   try {
     this.bm.getNodeStatus(id, function(err, res){
       if(err) return callback(null, "ERROR: "+err)
@@ -164,7 +164,7 @@ BitMExService.prototype.getNodeStatus = function(id, callback){
 /* __________ API FUNCTIONS (MESSAGES) __________ */
 
 /* [API] Print the status of a node */
-BitMExService.prototype.getNodeMessages = function(id, callback){
+TxMExService.prototype.getNodeMessages = function(id, callback){
   try{
     this.bm.getNodeMessages(id, function(err, res){
       if(err) return callback(null, "ERROR: "+err)
@@ -174,7 +174,7 @@ BitMExService.prototype.getNodeMessages = function(id, callback){
 }
 
 /* [API] Send a message */
-BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
+TxMExService.prototype.sendMessage = function(src, dst, msg, callback){
   try{
     this.bm.sendMessage(src, dst, msg, function(err, res){
       if(err) return callback(null, "ERROR: "+err)
@@ -184,14 +184,14 @@ BitMExService.prototype.sendMessage = function(src, dst, msg, callback){
 }
 
 /* [API] listen for new TM messages */
-BitMExService.prototype.waitMessage = function(net, callback){
+TxMExService.prototype.waitMessage = function(net, callback){
   this.bus.on('bmservice/newmessage', function(msg){
     callback(null, "New message from "+msg.src+" to "+msg.dst+" : "+msg.data)
   })
 }
 
 /* [API] listen for new TM messages from a specific BTC address */
-BitMExService.prototype.waitMessageFrom = function(src, callback){
+TxMExService.prototype.waitMessageFrom = function(src, callback){
   var srcAddr = this.bm.bmnet.isTMNodeID(src) ? this.bm.bmnet.getNodeAddress(src) : src
 
   if(TMutils.isValidAddr(srcAddr, this.node.network)){
@@ -205,7 +205,7 @@ BitMExService.prototype.waitMessageFrom = function(src, callback){
 }
 
 /* [API] listen for new TM messages to a node of the network */
-BitMExService.prototype.waitMessageTo = function(dst, callback){
+TxMExService.prototype.waitMessageTo = function(dst, callback){
   if(this.bm.bmnet.isTMNodeAddr(dst)) dst = this.bm.bmnet.getNodeID(dst)
 
   if(this.bm.bmnet.isTMNodeID(dst)){
@@ -219,12 +219,12 @@ BitMExService.prototype.waitMessageTo = function(dst, callback){
 
 /*__________ WEB INTERFACE __________*/
 /* Set server at http://localhost:3001/bitmex/ */
-BitMExService.prototype.getRoutePrefix = function() {
+TxMExService.prototype.getRoutePrefix = function() {
   return 'bitmex'
 };
 
 /* Web Endpoints */
-BitMExService.prototype.setupRoutes = function(app, express) {
+TxMExService.prototype.setupRoutes = function(app, express) {
   var self = this
 
   app.get('/broadcast', function(req, res) {
@@ -248,14 +248,14 @@ BitMExService.prototype.setupRoutes = function(app, express) {
 
 /*****************************************************************************/
 
-BitMExService.prototype.log = {
+TxMExService.prototype.log = {
   info: function(msg) {log.info(TM_NAME+": "+msg)},
   warn: function(msg) {log.warn(TM_NAME+": "+msg)},
   error: function(msg) {log.error(TM_NAME+": "+msg)},
 }
 
 /* Set API endpoints */
-BitMExService.prototype.getAPIMethods = function(){
+TxMExService.prototype.getAPIMethods = function(){
   return methods = [
     ['getnetstatus', this, this.getNetStatus, 0],
     ['addnode', this, this.addNode, 2],
@@ -270,4 +270,4 @@ BitMExService.prototype.getAPIMethods = function(){
   ];
 };
 
-module.exports = BitMExService;
+module.exports = TxMExService;
