@@ -1,0 +1,108 @@
+/* BMNode.js */
+'use strict'
+
+var fs = require('fs');
+var BMutils = require('./BMutils')
+const MODE = BMutils.MODE
+
+/***** Constructor *****/
+function BMNode(bmnet, nodeData, mode){
+  // EventEmitter.call(this)
+  if(!bmnet) throw "ERROR: Missing BMNet"
+
+  this.bmnet = bmnet
+  this.log = this.bmnet.log
+  this.id = nodeData.id
+  this.privKey = (nodeData.privKey ? nodeData.privKey : BMutils.createBTCKey())
+  this.addr = BMutils.getBTCAddr(this.privKey, this.bmnet.bm.network)
+
+  /* Subscribe to BM events */
+  var bus = bmnet.bm.bms.bus
+  var self = this
+  bus.on('bmservice/newmessage', function(message){
+    if(message.dst == self.id){
+      self.handleMessage(message)
+    }
+  })
+
+  //TODO: set per-network broadcast address
+  if(this.id != 'broadcast'){
+    bus.on('bmservice/broadcast', function(msg){
+      self.log.info('Received broadcast message: '+msg);
+      /* Send ACK message to the sender */ //TODO: set optionally
+      self.sendMessage('broadcast','ack')
+    })
+  }
+
+  if(mode == MODE.NEW)
+    this.saveData()
+}
+
+// util.inherits(BMNode, EventEmitter);
+
+/* Delete node file */
+BMNode.prototype.destroy = function(){
+  var dir = this.bmnet.bm.dir
+
+  fs.unlinkSync(dir+'/'+this.id+'.dat');
+}
+
+/* Save BMNode to file */
+BMNode.prototype.saveData = function(){ //(dir, name, data)
+  var nodeData = {
+    "id": this.id,
+    "privKey": this.privKey,
+    "addr": this.getAddr(),
+  }
+
+  BMutils.saveObject(this.bmnet.bm.dir, this.id+'.dat', nodeData)
+}
+
+/* Returns the BTC address */
+BMNode.prototype.getAddr = function(){
+  return this.addr
+}
+
+/* Send a message */
+BMNode.prototype.sendMessage = function(dst, msg){
+  var src = this.id
+
+  var self = this
+  this.bmnet.bm.sendMessage(src, dst, msg, function(){
+    self.log.info("["+this.id+"] Sent "+msg+" message to "+dst)
+  })
+}
+
+/* Sign a transaction */ //TODO: Curently not used. Remove?
+BMNode.prototype.signTransaction = function(tx){
+  tx.sign(this.privKey)
+}
+
+/* Returns the PrivateKey of the node */
+BMNode.prototype.getPrivKey = function(){
+  return this.privKey
+}
+
+/* Handle a received message */
+BMNode.prototype.handleMessage = function (message){
+  var msg = message.data
+  var src = message.src
+  this.log.info("["+this.id+"] Received message from "+src+": "+msg);
+
+  /* Interpret commands in the message */
+  //TODO: create rules set (this.rules)
+  var cmd = msg.substring(0,3)
+  switch (cmd) {
+    case 'ack':
+      break;
+    case 'png':
+      this.sendMessage(src, 'ack')
+      break;
+    default:
+      // this.log('Unknown Command '+cmd);
+  }
+};
+
+/*****************************************************************************/
+
+module.exports = BMNode;
