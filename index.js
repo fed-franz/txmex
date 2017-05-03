@@ -116,8 +116,6 @@ TxMExService.prototype.getNetStatus = function(callback){
 
 /* [API] Adds a new node to a TM network. Requires PrivateKey */
 TxMExService.prototype.addNode = function(id, privKey, callback){
-  if(!id || !privKey) callback(null, "Syntax: addnode {ID, \'auto\',\'temp\'} privkey")
-
   if(id == 'temp') var mode = MODE.TMP
   else var mode = MODE.NEW
   if(id == 'auto' || id == 'temp') id = ''
@@ -257,6 +255,7 @@ TxMExService.prototype.log = {
 /* Set API endpoints */
 TxMExService.prototype.getAPIMethods = function(){
   return methods = [
+    ['tmnet', this, this.getNetStatus, 2]
     ['getnetstatus', this, this.getNetStatus, 0],
     ['addnode', this, this.addNode, 2],
     ['createnode', this, this.createNode, 1],
