@@ -49,13 +49,13 @@ TxMExService.dependencies = ['bitcoind','web','insight-api'];
 TxMExService.prototype.start = function(callback){
   this.node.services.bitcoind.on('tx', this.transactionHandler.bind(this));
   this.bus = this.node.openBus()
-  this.bus.subscribe('bmservice/newmessage');
-  this.bus.subscribe('bmservice/broadcast');
+  this.bus.subscribe('tmservice/newmessage');
+  this.bus.subscribe('tmservice/broadcast');
 
   log.info("TxMEx Service Ready")
   try {
     //TODO: for each net - TxMExNet
-    this.bm = new TM(this, {dir:dataDir, name:'defaultTMnet'})
+    this.tm = new TM(this, {dir:dataDir, name:'defaultTMnet'})
   } catch (e) {
     log.error("ERROR: TxMEx failed to start: "+e);
     return callback(e)
@@ -73,13 +73,13 @@ TxMExService.prototype.stop = function(callback){
 TxMExService.prototype.getPublishEvents = function(){
   return [
       {
-        name: 'bmservice/newmessage',
+        name: 'tmservice/newmessage',
         scope: this,
         subscribe: this.subscribe.bind(this, 'newmessage'),
         unsubscribe: this.unsubscribe.bind(this, 'newmessage')
       },
       {
-        name: 'bmservice/broadcast',
+        name: 'tmservice/broadcast',
         scope: this,
         subscribe: this.subscribe.bind(this, 'broadcast'),
         unsubscribe: this.unsubscribe.bind(this, 'broadcast')
@@ -103,7 +103,7 @@ TxMExService.prototype.transactionHandler = function(txBuffer) {
   var tx = bitcore.Transaction().fromBuffer(txBuffer);
 
   try{
-    this.bm.handleTransaction(tx)
+    this.tm.handleTransaction(tx)
   } catch(e) { log.error("TxMEx: "+e) }
 }//transactionHandler()
 
@@ -111,7 +111,7 @@ TxMExService.prototype.transactionHandler = function(txBuffer) {
 
 /* [API] Prints the TMNet status */
 TxMExService.prototype.getNetStatus = function(callback){
-  callback(null, this.bm.bmnet.getStatus())
+  callback(null, this.tm.tmnet.getStatus())
 }
 
 /* [API] Adds a new node to a TM network. Requires PrivateKey */
@@ -123,7 +123,7 @@ TxMExService.prototype.addNode = function(id, privKey, callback){
   if(id == 'auto' || id == 'temp') id = ''
 
   try {
-    var node = this.bm.bmnet.addTMNode({id, privKey}, mode)
+    var node = this.tm.tmnet.addTMNode({id, privKey}, mode)
   } catch (e) { return callback(null, "ERROR: "+e) }
 
   return callback(null, node)
@@ -136,7 +136,7 @@ TxMExService.prototype.createNode = function(id, callback){
   if(id == 'auto' || id == 'temp') id = ''
 
   try {
-    var node = this.bm.bmnet.addTMNode({id:id}, mode)
+    var node = this.tm.tmnet.addTMNode({id:id}, mode)
   } catch (e){ return callback(null, "ERROR: "+e) }
 
   return callback(null, node)
@@ -145,7 +145,7 @@ TxMExService.prototype.createNode = function(id, callback){
 /* [API] Deletes a node */
 TxMExService.prototype.removeNode = function(id, callback){
   try {
-    this.bm.bmnet.removeTMNode(id)
+    this.tm.tmnet.removeTMNode(id)
   } catch (e){ return callback(null, "ERROR: "+e) }
 
   return callback(null, "Node "+id+" removed")
@@ -154,7 +154,7 @@ TxMExService.prototype.removeNode = function(id, callback){
 /* [API] Print the status of a node */
 TxMExService.prototype.getNodeStatus = function(id, callback){
   try {
-    this.bm.getNodeStatus(id, function(err, res){
+    this.tm.getNodeStatus(id, function(err, res){
       if(err) return callback(null, "ERROR: "+err)
       return callback(null, res)
     })
@@ -166,7 +166,7 @@ TxMExService.prototype.getNodeStatus = function(id, callback){
 /* [API] Print the status of a node */
 TxMExService.prototype.getNodeMessages = function(id, callback){
   try{
-    this.bm.getNodeMessages(id, function(err, res){
+    this.tm.getNodeMessages(id, function(err, res){
       if(err) return callback(null, "ERROR: "+err)
       return callback(null, res)
     })
@@ -176,7 +176,7 @@ TxMExService.prototype.getNodeMessages = function(id, callback){
 /* [API] Send a message */
 TxMExService.prototype.sendMessage = function(src, dst, msg, callback){
   try{
-    this.bm.sendMessage(src, dst, msg, function(err, res){
+    this.tm.sendMessage(src, dst, msg, function(err, res){
       if(err) return callback(null, "ERROR: "+err)
       return callback(null, res)
     })
@@ -185,19 +185,19 @@ TxMExService.prototype.sendMessage = function(src, dst, msg, callback){
 
 /* [API] listen for new TM messages */
 TxMExService.prototype.waitMessage = function(net, callback){
-  this.bus.on('bmservice/newmessage', function(msg){
+  this.bus.on('tmservice/newmessage', function(msg){
     callback(null, "New message from "+msg.src+" to "+msg.dst+" : "+msg.data)
   })
 }
 
 /* [API] listen for new TM messages from a specific BTC address */
 TxMExService.prototype.waitMessageFrom = function(src, callback){
-  var srcAddr = this.bm.bmnet.isTMNodeID(src) ? this.bm.bmnet.getNodeAddress(src) : src
+  var srcAddr = this.tm.tmnet.isTMNodeID(src) ? this.tm.tmnet.getNodeAddress(src) : src
 
   if(TMutils.isValidAddr(srcAddr, this.node.network)){
     var self=this
-    this.bus.on('bmservice/newmessage', function(msg){
-      if(msg.src == srcAddr || msg.src == self.bmnet.getNodeID(srcAddr))
+    this.bus.on('tmservice/newmessage', function(msg){
+      if(msg.src == srcAddr || msg.src == self.tmnet.getNodeID(srcAddr))
         callback(null, "New Message to "+msg.dst+": "+msg.data)
     })
   }
@@ -206,10 +206,10 @@ TxMExService.prototype.waitMessageFrom = function(src, callback){
 
 /* [API] listen for new TM messages to a node of the network */
 TxMExService.prototype.waitMessageTo = function(dst, callback){
-  if(this.bm.bmnet.isTMNodeAddr(dst)) dst = this.bm.bmnet.getNodeID(dst)
+  if(this.tm.tmnet.isTMNodeAddr(dst)) dst = this.tm.tmnet.getNodeID(dst)
 
-  if(this.bm.bmnet.isTMNodeID(dst)){
-    this.bus.on('bmservice/newmessage', function(msg){
+  if(this.tm.tmnet.isTMNodeID(dst)){
+    this.bus.on('tmservice/newmessage', function(msg){
       if(msg.dst == dst)
         callback(null, "New message from "+msg.src+": "+msg.data)
     })
@@ -233,12 +233,12 @@ TxMExService.prototype.setupRoutes = function(app, express) {
     res.send('Broadcasting message \'hello world\'');
 
     for (var i = 0; i < self.subscriptions.broadcast.length; i++) {
-      self.subscriptions.broadcast[i].emit('bmservice/broadcast', 'hello world');
+      self.subscriptions.broadcast[i].emit('tmservice/broadcast', 'hello world');
     }
   });
 
   app.get('/status', function(req, res){
-    status = self.bm.bmnet.getStatus()
+    status = self.tm.tmnet.getStatus()
     res.send(status)
   })
 
