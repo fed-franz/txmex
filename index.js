@@ -256,8 +256,8 @@ TxMExService.prototype.log = {
 TxMExService.prototype.getAPIMethods = function(){
   return methods = [
     ['getnetstatus', this, this.getNetStatus, 0],
-    ['addnode', this, this.addNode, 2],
     ['createnode', this, this.createNode, 1],
+    ['addnode', this, this.addNode, 2],
     ['removenode', this, this.removeNode, 1],
     ['getnodestatus', this, this.getNodeStatus, 1],
     ['sendmessage', this, this.sendMessage, 3],
