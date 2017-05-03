@@ -45,6 +45,13 @@ util.inherits(TxMExService, EventEmitter);
 /* Required services */
 TxMExService.dependencies = ['bitcoind','web','insight-api'];
 
+/* Wrap Bitcore Logger */
+TxMExService.prototype.log = {
+  info: function(msg) {log.info(TM_NAME+": "+msg)},
+  warn: function(msg) {log.warn(TM_NAME+": "+msg)},
+  error: function(msg) {log.error(TM_NAME+": "+msg)},
+}
+
 /* Start service */
 TxMExService.prototype.start = function(callback){
   this.node.services.bitcoind.on('tx', this.transactionHandler.bind(this));
@@ -245,12 +252,6 @@ TxMExService.prototype.setupRoutes = function(app, express) {
 };
 
 /*****************************************************************************/
-
-TxMExService.prototype.log = {
-  info: function(msg) {log.info(TM_NAME+": "+msg)},
-  warn: function(msg) {log.warn(TM_NAME+": "+msg)},
-  error: function(msg) {log.error(TM_NAME+": "+msg)},
-}
 
 /* Set API endpoints */
 TxMExService.prototype.getAPIMethods = function(){
