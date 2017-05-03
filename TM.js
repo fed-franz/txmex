@@ -1,31 +1,31 @@
 /* Bm.js */
 'use strict'
 
-var BitMEx = require('./BitMEx')
-var BMNet = require('./BMNet')
+var TxMEx = require('./TxMEx')
+var TMNet = require('./TMNet')
 
-const BMutils = require('./BMutils');
-const isValidAddr = BMutils.isValidAddr
-const hexToAscii = BMutils.hexToAscii
+const TMutils = require('./TMutils');
+const isValidAddr = TMutils.isValidAddr
+const hexToAscii = TMutils.hexToAscii
 
 /* Constructor */
-function BM(bms, options){
-  if(!bms) throw "ERR: BM requires a Bitcore Node instance"
+function TM(tms, options){
+  if(!tms) throw "ERR: TM requires a Bitcore Node instance"
 
-  //TODO: if(!options.name) genBMName
+  //TODO: if(!options.name) genTMName
   if(!options.name) throw "ERR: missing 'name'"
-  if (BMutils.existsFileDir()) throw "ERR: missing 'dir'"
+  if (TMutils.existsFileDir()) throw "ERR: missing 'dir'"
 
-  this.bms = bms
-  this.network = bms.node.network
+  this.tms = tms
+  this.network = tms.node.network
   this.name = options.name
   this.dir = options.dir+'/'+this.name
-  BMutils.createDirectory(this.dir)
+  TMutils.createDirectory(this.dir)
   this.msgDB = {}
 
-  this.log = this.bms.log
+  this.log = this.tms.log
   /* Load existing network  or create a new one */
-  this.bmnet = new BMNet(this, {})
+  this.tmnet = new TMNet(this, {})
 }
 
 /*__________ NODES __________*/
@@ -34,83 +34,83 @@ function BM(bms, options){
  Will return the ID of the new node
  @param {String} id - ID for the new node
  */
-BM.prototype.createNode = function(id){
+TM.prototype.createNode = function(id){
   if(!id) throw "ERR: Missing ID"
 
-  var nodeID = this.bmnet.addBMNode({id}, MODE.NEW)
+  var nodeID = this.tmnet.addTMNode({id}, MODE.NEW)
 
   return nodeID
 }
 
-/* [API] Adds a new node to a BM network. Requires PrivateKey */
-BM.prototype.addNode = function(options){
+/* [API] Adds a new node to a TM network. Requires PrivateKey */
+TM.prototype.addNode = function(options){
   if(!options) options = {}
-  this.bmnet.addBMNode({id:options.id, pk:options.privKey}, options.mode)
+  this.tmnet.addTMNode({id:options.id, pk:options.privKey}, options.mode)
 }
 
 /* [API] Deletes a node */
-BM.prototype.removeNode = function(id){
-  if(!id || !this.bmnet.isBMNodeID(id)) throw "ERR: Invalid ID"
+TM.prototype.removeNode = function(id){
+  if(!id || !this.tmnet.isTMNodeID(id)) throw "ERR: Invalid ID"
 
-  this.bmnet.removeBMNode(id)
+  this.tmnet.removeTMNode(id)
 }
 
 /* Returns the status of a node */
-BM.prototype.getNodeStatus = function(id, callback){
-  if(!this.bmnet.isBMNodeID(id)) return callback("ERR: Invalid ID")
+TM.prototype.getNodeStatus = function(id, callback){
+  if(!this.tmnet.isTMNodeID(id)) return callback("ERR: Invalid ID")
 
   var self = this
-  var addr = this.bmnet.getNodeAddress(id)
-  return BitMEx.getBMNodeStatus(addr, this.bms.node, function(err, status){
+  var addr = this.tmnet.getNodeAddress(id)
+  return TxMEx.getTMNodeStatus(addr, this.tms.node, function(err, status){
     if(err) return callback(err)
 
     /* Replace address with ID (if it belongs to local network) */
     var inbox = status.messages.inbox
     for(var i in inbox){
       var msg = inbox[i]
-      if(self.bmnet.isBMNodeAddr(msg.src))
-        msg.src = self.bmnet.getNodeID(msg.src)
+      if(self.tmnet.isTMNodeAddr(msg.src))
+        msg.src = self.tmnet.getNodeID(msg.src)
     }
     var outbox = status.messages.outbox
     for(var i in outbox){
       var msg = outbox[i]
-      if(self.bmnet.isBMNodeAddr(msg.dst))
-        msg.dst = self.bmnet.getNodeID(msg.dst)
+      if(self.tmnet.isTMNodeAddr(msg.dst))
+        msg.dst = self.tmnet.getNodeID(msg.dst)
     }
     return callback(null, status)
-  })//getBMNodeStatus
+  })//getTMNodeStatus
 }
 
-/* Returns the BM messages of a node */
-BM.prototype.getNodeMessages = function(id, callback){
-  var nodeAddr = this.bmnet.getNodeAddress(id)
+/* Returns the TM messages of a node */
+TM.prototype.getNodeMessages = function(id, callback){
+  var nodeAddr = this.tmnet.getNodeAddress(id)
 
   try {
     var self = this
-    BitMEx.getBMMessages(nodeAddr, this.bms.node, function(err, msgs){
+    TxMEx.getTMMessages(nodeAddr, this.tms.node, function(err, msgs){
       /* Add node ID to the result */
       for(var i in msgs){
         var msg = msgs[i]
-        if(self.bmnet.isBMNodeAddr(msg.src))
-          msgs[i].src = self.bmnet.getNodeID(msg.src)
-        if(self.bmnet.isBMNodeAddr(msg.dst))
-          msgs[i].dst = self.bmnet.getNodeID(msg.dst)
+        if(self.tmnet.isTMNodeAddr(msg.src))
+          msgs[i].src = self.tmnet.getNodeID(msg.src)
+        if(self.tmnet.isTMNodeAddr(msg.dst))
+          msgs[i].dst = self.tmnet.getNodeID(msg.dst)
       }
 
       return callback(null, msgs)
-    })//getBMMessages
+    })//getTMMessages
   } catch (e) { return callback(e) }
 }
 
 /*__________ SENDER FUNCTIONS __________*/
 /* Send a message */
-BM.prototype.sendMessage = function(src, dst, msg, callback){
+TM.prototype.sendMessage = function(src, dst, msg, callback){
   this.log.info("Sending message - \'"+msg+"\' from "+src+" to "+dst);
 
   /* Check src and dst */
-  var srcAddr = this.bmnet.getNodeAddress(src)
+  var srcAddr = this.tmnet.getNodeAddress(src)
   if(!srcAddr) throw "ERR: invalid source"
-  var dstAddr = this.bmnet.getNodeAddress(dst)
+  var dstAddr = this.tmnet.getNodeAddress(dst)
   if(!dstAddr)
     if(isValidAddr(dst, this.network))
       dstAddr = dst
@@ -120,30 +120,30 @@ BM.prototype.sendMessage = function(src, dst, msg, callback){
     src: srcAddr,
     dst: dstAddr,
     msg: msg,
-    pk: this.bmnet.getNode(src).getPrivKey()
+    pk: this.tmnet.getNode(src).getPrivKey()
   }
-  BitMEx.sendBMMessage(msgData, callback)
+  TxMEx.sendTMMessage(msgData, callback)
 }
 
 /*__________ RECEIVER FUNCTIONS __________*/
 /* Handles received transactions */
-BM.prototype.handleTransaction = function(tx) {
-  if(BitMEx.isBMTransaction(tx)){
-    this.log.info("BitMEx transaction received: "+tx.id);
+TM.prototype.handleTransaction = function(tx) {
+  if(TxMEx.isTMTransaction(tx)){
+    this.log.info("TxMEx transaction received: "+tx.id);
     var src = tx.inputs[0].script.toAddress(this.network);
     var dst = tx.outputs[0].script.toAddress(this.network);
 
     var msgsplit = tx.outputs[1].script.toString().split(" ")
     var data = hexToAscii(msgsplit[msgsplit.length-1])
 
-    if(this.bmnet.isBMNodeAddr(dst))
+    if(this.tmnet.isTMNodeAddr(dst))
       this.collectMessage(src, dst, data)
-  }//if(isBMTransaction)
+  }//if(isTMTransaction)
 }//transactionHandler()
 
 /* Collects received chunks */
 //TODO: handle multiple messages from A to B. Add Msg ID/timestamp?
-BM.prototype.collectMessage = function (src, dst, data){
+TM.prototype.collectMessage = function (src, dst, data){
   src = src.toString()
   dst = dst.toString()
   var msglen = parseInt(data.charAt(3), 16);
@@ -164,24 +164,24 @@ BM.prototype.collectMessage = function (src, dst, data){
 
   /* If a message is complete, deliver it */
   if(complete){
-    var fullmsg = BMutils.assembleChunks(msgDB[msgid])
-    var srcNode = this.bmnet.isBMNodeAddr(src) ? this.bmnet.getNodeID(src) : src
-    var dstNode = this.bmnet.getNodeID(dst)
+    var fullmsg = TMutils.assembleChunks(msgDB[msgid])
+    var srcNode = this.tmnet.isTMNodeAddr(src) ? this.tmnet.getNodeID(src) : src
+    var dstNode = this.tmnet.getNodeID(dst)
 
     this.deliverMessage(srcNode, dstNode, fullmsg)
     delete msgDB[msgid]
   }
 }
 
-/* Delive message to the BM network */
-BM.prototype.deliverMessage = function(src, dst, data){
+/* Delive message to the TM network */
+TM.prototype.deliverMessage = function(src, dst, data){
   var message = {src:src, dst:dst, data:data}
 
-  /* Emits 'newmessage' event notifications to BM Nodes */
-  for(var i = 0; i < this.bms.subscriptions.newmessage.length; i++)
-    this.bms.subscriptions.newmessage[i].emit('bmservice/newmessage', message);
+  /* Emits 'newmessage' event notifications to TM Nodes */
+  for(var i = 0; i < this.tms.subscriptions.newmessage.length; i++)
+    this.tms.subscriptions.newmessage[i].emit('tmservice/newmessage', message);
 }
 
 /*****************************************************************************/
 
-module.exports = BM;
+module.exports = TM;

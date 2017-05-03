@@ -1,25 +1,25 @@
-/* BMNode.js */
+/* TMNode.js */
 'use strict'
 
 var fs = require('fs');
-var BMutils = require('./BMutils')
-const MODE = BMutils.MODE
+var TMutils = require('./TMutils')
+const MODE = TMutils.MODE
 
 /***** Constructor *****/
-function BMNode(bmnet, nodeData, mode){
+function TMNode(tmnet, nodeData, mode){
   // EventEmitter.call(this)
-  if(!bmnet) throw "ERROR: Missing BMNet"
+  if(!tmnet) throw "ERROR: Missing TMNet"
 
-  this.bmnet = bmnet
-  this.log = this.bmnet.log
+  this.tmnet = tmnet
+  this.log = this.tmnet.log
   this.id = nodeData.id
-  this.privKey = (nodeData.privKey ? nodeData.privKey : BMutils.createBTCKey())
-  this.addr = BMutils.getBTCAddr(this.privKey, this.bmnet.bm.network)
+  this.privKey = (nodeData.privKey ? nodeData.privKey : TMutils.createBTCKey())
+  this.addr = TMutils.getBTCAddr(this.privKey, this.tmnet.tm.network)
 
-  /* Subscribe to BM events */
-  var bus = bmnet.bm.bms.bus
+  /* Subscribe to TM events */
+  var bus = tmnet.tm.tms.bus
   var self = this
-  bus.on('bmservice/newmessage', function(message){
+  bus.on('tmservice/newmessage', function(message){
     if(message.dst == self.id){
       self.handleMessage(message)
     }
@@ -27,7 +27,7 @@ function BMNode(bmnet, nodeData, mode){
 
   //TODO: set per-network broadcast address
   if(this.id != 'broadcast'){
-    bus.on('bmservice/broadcast', function(msg){
+    bus.on('tmservice/broadcast', function(msg){
       self.log.info('Received broadcast message: '+msg);
       /* Send ACK message to the sender */ //TODO: set optionally
       self.sendMessage('broadcast','ack')
@@ -38,53 +38,53 @@ function BMNode(bmnet, nodeData, mode){
     this.saveData()
 }
 
-// util.inherits(BMNode, EventEmitter);
+// util.inherits(TMNode, EventEmitter);
 
 /* Delete node file */
-BMNode.prototype.destroy = function(){
-  var dir = this.bmnet.bm.dir
+TMNode.prototype.destroy = function(){
+  var dir = this.tmnet.tm.dir
 
   fs.unlinkSync(dir+'/'+this.id+'.dat');
 }
 
-/* Save BMNode to file */
-BMNode.prototype.saveData = function(){ //(dir, name, data)
+/* Save TMNode to file */
+TMNode.prototype.saveData = function(){ //(dir, name, data)
   var nodeData = {
     "id": this.id,
     "privKey": this.privKey,
     "addr": this.getAddr(),
   }
 
-  BMutils.saveObject(this.bmnet.bm.dir, this.id+'.dat', nodeData)
+  TMutils.saveObject(this.tmnet.tm.dir, this.id+'.dat', nodeData)
 }
 
 /* Returns the BTC address */
-BMNode.prototype.getAddr = function(){
+TMNode.prototype.getAddr = function(){
   return this.addr
 }
 
 /* Send a message */
-BMNode.prototype.sendMessage = function(dst, msg){
+TMNode.prototype.sendMessage = function(dst, msg){
   var src = this.id
 
   var self = this
-  this.bmnet.bm.sendMessage(src, dst, msg, function(){
+  this.tmnet.tm.sendMessage(src, dst, msg, function(){
     self.log.info("["+this.id+"] Sent "+msg+" message to "+dst)
   })
 }
 
 /* Sign a transaction */ //TODO: Curently not used. Remove?
-BMNode.prototype.signTransaction = function(tx){
+TMNode.prototype.signTransaction = function(tx){
   tx.sign(this.privKey)
 }
 
 /* Returns the PrivateKey of the node */
-BMNode.prototype.getPrivKey = function(){
+TMNode.prototype.getPrivKey = function(){
   return this.privKey
 }
 
 /* Handle a received message */
-BMNode.prototype.handleMessage = function (message){
+TMNode.prototype.handleMessage = function (message){
   var msg = message.data
   var src = message.src
   this.log.info("["+this.id+"] Received message from "+src+": "+msg);
@@ -105,4 +105,4 @@ BMNode.prototype.handleMessage = function (message){
 
 /*****************************************************************************/
 
-module.exports = BMNode;
+module.exports = TMNode;
