@@ -184,7 +184,7 @@ TxMExService.prototype.sendMessage = function(src, dst, msg, callback){
 /* [API] listen for new TM messages */
 TxMExService.prototype.waitMessage = function(net, callback){
   this.bus.on('tmservice/newmessage', function(msg){
-    callback(null, "New message from "+msg.src+" to "+msg.dst+" : "+msg.data)
+    callback(null, msg)
   })
 }
 
@@ -196,7 +196,7 @@ TxMExService.prototype.waitMessageFrom = function(src, callback){
     var self=this
     this.bus.on('tmservice/newmessage', function(msg){
       if(msg.src == srcAddr || msg.src == self.tmnet.getNodeID(srcAddr))
-        callback(null, "New Message to "+msg.dst+": "+msg.data)
+        callback(null, msg)
     })
   }
   else return callback(null, "ERR: invalid source")
@@ -209,7 +209,7 @@ TxMExService.prototype.waitMessageTo = function(dst, callback){
   if(this.tm.tmnet.isTMNodeID(dst)){
     this.bus.on('tmservice/newmessage', function(msg){
       if(msg.dst == dst)
-        callback(null, "New message from "+msg.src+": "+msg.data)
+        callback(null, msg)
     })
   }
   else return callback(null, "ERR: invalid destination node")
