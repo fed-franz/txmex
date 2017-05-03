@@ -184,7 +184,7 @@ TxMExService.prototype.sendMessage = function(src, dst, msg, callback){
 /* [API] listen for new TM messages */
 TxMExService.prototype.waitMessage = function(net, callback){
   this.bus.on('tmservice/newmessage', function(msg){
-    callback(null, "New message from "+msg.src+" to "+msg.dst+" : "+msg.data)
+    callback(null, msg)
   })
 }
 
@@ -196,7 +196,7 @@ TxMExService.prototype.waitMessageFrom = function(src, callback){
     var self=this
     this.bus.on('tmservice/newmessage', function(msg){
       if(msg.src == srcAddr || msg.src == self.tmnet.getNodeID(srcAddr))
-        callback(null, "New Message to "+msg.dst+": "+msg.data)
+        callback(null, msg)
     })
   }
   else return callback(null, "ERR: invalid source")
@@ -209,10 +209,124 @@ TxMExService.prototype.waitMessageTo = function(dst, callback){
   if(this.tm.tmnet.isTMNodeID(dst)){
     this.bus.on('tmservice/newmessage', function(msg){
       if(msg.dst == dst)
-        callback(null, "New message from "+msg.src+": "+msg.data)
+        callback(null, msg)
     })
   }
   else return callback(null, "ERR: invalid destination node")
+}
+
+TxMExService.prototype.waitMessageFromTo = function(src, dst, callback){
+  var srcAddr = this.tm.tmnet.isTMNodeID(src) ? this.tm.tmnet.getNodeAddress(src) : src
+  if(this.tm.tmnet.isTMNodeAddr(dst)) dst = this.tm.tmnet.getNodeID(dst)
+
+  if(TMutils.isValidAddr(srcAddr, this.node.network)){
+    var self=this
+    this.bus.on('tmservice/newmessage', function(msg){
+      if(msg.dst == dst && (msg.src == srcAddr || msg.src == self.tmnet.getNodeID(srcAddr)))
+        callback(null, msg)
+    })
+  }
+  else return callback(null, "ERR: invalid source")
+}
+
+TxMExService.prototype.tmNet = function(cmd, options, callback){
+  switch (cmd) {
+    //TODO case 'new': create new Network - option.name
+    case 'status':
+      callback(null, this.tm.tmnet.getStatus())
+      break;
+    //TODO: switch: change default net
+
+    default:
+
+  }
+}
+
+
+TxMExService.prototype.tmNode = function(cmd, id, options, callback){
+  var SYNTAX = "SYNTAX: tmnode {new|add|remove} {id:ID|'auto'} \"{mode:temp, pk:PRIVATE_KEY, src:NODE_ID|ADDR}\""
+
+  if(cmd == 'help') return callback(null, SYNTAX)
+
+  var privKey = options.pk
+  var src = options.src
+  var mode = options.mode=='temp' ? MODE.TMP : MODE.NEW
+
+  switch (cmd) {
+    case 'add':
+      if(!privKey) return callback(null, SYNTAX+" - Option 'pk' is required")
+    case 'new':
+      if(id == 'auto' || id == 'temp') id = ''
+
+      try {
+        var node = this.tm.tmnet.addTMNode({id, privKey}, mode)
+      } catch (e) { return callback(null, "ERROR: "+e) }
+
+      return callback(null, node)
+
+    case 'remove':
+      try {
+        this.tm.tmnet.removeTMNode(id)
+      } catch (e){ return callback(null, "ERROR: "+e) }
+
+      return callback(null, "Node "+id+" removed")
+      break
+
+    case 'getstatus':
+      try {
+        this.tm.getNodeStatus(id, function(err, res){
+          if(err) return callback(null, "ERROR: "+err)
+          return callback(null, res)
+        })
+      } catch (e) { return callback(null, "ERROR: "+e) }
+    break;
+
+    case 'getmessages':
+      try{
+        this.tm.getNodeMessages(id, function(err, res){
+          if(err) return callback(null, "ERROR: "+err)
+          return callback(null, res)
+        })
+      } catch (e) { return callback(null, "ERROR: "+e) }
+      break;
+
+    case 'waitmessage':
+      return this.waitMessageTo(id, callback)
+      break;
+
+    default:
+
+  }
+}
+
+TxMExService.prototype.tmMex = function(cmd, options, callback){
+  var SYNTAX = "SYNTAX: tm {send|getall|wait} \"{id:NODE_ID, src:NODE_ID|ADDR, dst:NODE_ID|ADDR, msg:MESSAGE}\""
+
+  var src = options.src
+  var dst = options.dst
+  var msg = options.msg
+
+  switch (cmd) {
+    case 'send':
+      if(!src || !dst || !msg)
+        return callback(null, "SYNTAX: tmex send \"{src:SRC, dst:DST, msg:MSG}\"")
+      try{
+        this.tm.sendMessage(src, dst, msg, function(err, res){
+          if(err) return callback(null, "ERROR: "+err)
+          return callback(null, res)
+        })
+      } catch(e){ return callback(null, "ERROR: "+e) }
+      break;
+
+    case 'wait':
+      this.waitMessage("", callback)
+      break;
+
+    //TODO: get(txid)
+
+    default:
+
+  }
 }
 
 /*__________ WEB INTERFACE __________*/
@@ -255,17 +369,9 @@ TxMExService.prototype.log = {
 /* Set API endpoints */
 TxMExService.prototype.getAPIMethods = function(){
   return methods = [
-    ['tmnet', this, this.getNetStatus, 2]
-    ['getnetstatus', this, this.getNetStatus, 0],
-    ['addnode', this, this.addNode, 2],
-    ['createnode', this, this.createNode, 1],
-    ['removenode', this, this.removeNode, 1],
-    ['getnodestatus', this, this.getNodeStatus, 1],
-    ['sendmessage', this, this.sendMessage, 3],
-    ['getmessages', this, this.getNodeMessages, 1],
-    ['waitmessage', this, this.waitMessage, 1],
-    ['waitmessagefrom', this, this.waitMessageFrom, 1],
-    ['waitmessageto', this, this.waitMessageTo, 1],
+    ['tmnet', this, this.tmNet, 2],
+    ['tmnode', this, this.tmNode, 3],
+    ['tmmex', this, this.tmMex, 2],
   ];
 };
 
