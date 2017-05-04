@@ -1,5 +1,8 @@
 # TxMEx
-Transaction Message Exchange (TxMEx) is a service for Bitcore that allows to send and receive messages between the nodes of a Bitcoin network
+Transaction Message Exchange (TxMEx) is a service for Bitcore that allows to send and receive messages between the nodes of a Bitcoin network. 
+
+The use of this service is mainly intended to be with the Testnet network and has never been tested on Mainnet.
+Transactions are not for free, as they have a minimum cost both for the transaction value (546) and the fee (3000).
 
 ## Requirements
 - bitcore-node
@@ -43,6 +46,9 @@ The available commands are:
   - SYNTAX: 'waitmessagefrom {ID|ADDR}'
 - waitmessageto: wait for a new TM message to a specific source address; 
   - SYNTAX: 'waitmessageto ID'
+  
+### Update
+If installed via NPM you can update it by typing `npm update txmex` from the `node_modules` folder of the Bitcore node you're using.
 
 ## TxMEx protocol details
 Messages are splitted into chunks of 76 bytes, each of which is embedded into a transaction, through the OP_RETURN Script command.
@@ -59,7 +65,8 @@ The first 3 characters of the message are interpreted as a command.
 Currently, only 2 commands are considered: 'png' and 'ack'; when a node receives a 'png' command, it will send back an 'ack' message.  
 [In a future release, nodes will have the ability to load a 'rule set', defining their behavior]
 
-## Limitations
-- TxMEx does not encrypt private key, so they are currently stored in clear on the hard drive
-- Nodes need funds to send messages. [It is planned to add an automatic faucet request, for Testnet]
-- TxMEx currently support one network per-node [TxMEx design has been thought for multiple networks, so this limitation will be removed soon]
+## Limitations & Planned Improvements
+- TxMEx does not encrypt private key, so they are currently stored in the clear on the hard drive;
+- Nodes need funds to send messages. [It is planned to add an automatic faucet request, for Testnet];
+- TxMEx currently support one network per-node [TxMEx design has been thought for multiple networks, so this limitation will be removed soon];
+- Currently, transaction value and fee cannot be changed [It is planned to give the ability to change this values in a future release]
