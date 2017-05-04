@@ -4,6 +4,8 @@ Transaction Message Exchange (TxMEx) is a service for Bitcore that allows to sen
 The use of this service is mainly intended to be with the Testnet network and has never been tested on Mainnet.
 Transactions are not for free, as they have a minimum cost both for the transaction value (546) and the fee (3000).
 
+See below for more details.
+
 ## Requirements
 - bitcore-node
 - bitcore-lib
