@@ -257,7 +257,7 @@ var getTMMessages = function(address, node, callback){
  */
 var getTMNodeStatus = function(address, node, callback){
   var network = TMutils.getBTCNetwork(address)
-  insight = new explorers.Insight(network)
+  var insight = new explorers.Insight(network)
 
   var nodeStatus = { "address": address }
 

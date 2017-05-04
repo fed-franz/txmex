@@ -87,7 +87,7 @@ TMNode.prototype.getPrivKey = function(){
 TMNode.prototype.handleMessage = function (message){
   var msg = message.data
   var src = message.src
-  this.log.info("["+this.id+" ("+this.tmnet.name+")] New message from "+src+": "+msg);
+  this.log.info("["+this.id+" ("+this.tmnet.tm.name+")] New message from "+src+": "+msg);
 
   /* Interpret commands in the message */
   //TODO: create rules set (this.rules)
