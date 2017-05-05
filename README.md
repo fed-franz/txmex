@@ -1,8 +1,9 @@
 # TxMEx
 Transaction Message Exchange (TxMEx) is a service for Bitcore that allows to send and receive messages between the nodes of a Bitcoin network. 
 
-The use of this service is mainly intended to be with the Testnet network and has never been tested on Mainnet.
-Transactions are not for free, as they have a minimum cost both for the transaction value (546) and the fee (3000).
+The TxMEx service is mainly intended for the Testnet network and has never been tested on Mainnet.
+Transactions has a minimum cost for both for the transferred value (546) and the fee (3000).
+It is theoretically possible to use the service in the Mainnet by simply setting the Bitore node accordingly.
 
 See below for more details.
 
