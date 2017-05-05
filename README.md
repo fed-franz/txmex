@@ -3,7 +3,7 @@ Transaction Message Exchange (TxMEx) is a service for Bitcore that allows to sen
 
 The TxMEx service is mainly intended for the Testnet network and has never been tested on Mainnet.
 Transactions has a minimum cost for both for the transferred value (546) and the fee (3000).
-It is theoretically possible to use the service in the Mainnet by simply setting the Bitore node accordingly.
+It is theoretically possible to use the service in the Mainnet by simply setting the Bitcore node accordingly. This use is however discouraged
 
 See below for more details.
 
@@ -32,23 +32,23 @@ In order to interact with the TxMEx (for short, TM) service, you can use the 'bi
 The available commands are:
 - getnetstatus: returns nodes in the default TM network
 - createnode: creates a new TM node;
-  - SYNTAX: 'createnode NAME' ; if NAME=auto, the name will be choose automatically; if NAME=temp, the node won't be saved
+  - Syntax: 'createnode NAME' ; if NAME=auto, the name will be choose automatically; if NAME=temp, the node won't be saved
 - addnode: adds an existing Bitcoin node to the TM network; 
-  - SYNTAX: 'addnode NAME PRIV_KEY' ; NAME follows the same rules as in 'createnode'
+  - Syntax: 'addnode NAME PRIV_KEY' ; NAME follows the same rules as in 'createnode'
 - removenode: removes a node from the TM network; 
-  - SYNTAX: 'removenode NAME'
+  - Syntax: 'removenode NAME'
 - getnodestatus: returns funds and in/out messages for a TM node; 
-  - SYNTAX: 'getnodestatus NAME'
+  - Syntax: 'getnodestatus NAME'
 - sendmessage: sends a message from one TM node to another; 
-  - SYNTAX: 'sendmessage SRC_ID DST_{NAME|ADDR} MESSAGE'
+  - Syntax: 'sendmessage SRC_ID DST_{NAME|ADDR} MESSAGE'
 - getmessages: retrieves all TM messages for a TM node; 
-  - SYNTAX: 'getmessages ID'
+  - Syntax: 'getmessages ID'
 - waitmessage: wait for a new TM message for the local TM network; 
-  - SYNTAX: 'waitmessage'
+  - Syntax: 'waitmessage'
 - waitmessagefrom: wait for a new TM message from a specific source address; 
-  - SYNTAX: 'waitmessagefrom {ID|ADDR}'
+  - Syntax: 'waitmessagefrom {ID|ADDR}'
 - waitmessageto: wait for a new TM message to a specific source address; 
-  - SYNTAX: 'waitmessageto ID'
+  - Syntax: 'waitmessageto ID'
   
 ### Update
 If installed via NPM you can update it by typing `npm update txmex` from the `node_modules` folder of the Bitcore node you're using.
